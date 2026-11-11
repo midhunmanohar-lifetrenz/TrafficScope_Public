@@ -1,0 +1,359 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TrafficScope.ViewModels" xmlns:core="using:TrafficScope.Core"
+        x:Class="TrafficScope.MainWindow" x:DataType="vm:MainViewModel"
+        Title="TrafficScope" Width="1360" Height="860" MinWidth="980" MinHeight="600"
+        Icon="avares://TrafficScope/Resources/AppIcon.png">
+  <Window.Resources>
+    <DataTemplate x:Key="NameValueRow" x:DataType="core:NameValue">
+      <Grid ColumnDefinitions="190,*" Margin="0,3">
+        <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Medium" TextWrapping="Wrap" Margin="0,0,10,0" />
+        <StackPanel Grid.Column="1">
+          <SelectableTextBlock Text="{Binding Value}" TextWrapping="Wrap" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
+          <TextBlock Text="{Binding Note}" Classes="caption" IsVisible="{Binding Note, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+    <DataTemplate x:Key="AppRow" x:DataType="vm:AppItemVm">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="2,2" Background="Transparent">
+        <Panel Grid.Column="0" Width="24" Height="24" Margin="4,0,8,0" VerticalAlignment="Center">
+          <Border CornerRadius="6" Background="{Binding AvatarBrush}" IsVisible="{Binding !HasIcon}">
+            <TextBlock Text="{Binding Initial}" Foreground="White" FontSize="11" FontWeight="Medium" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
+        </Panel>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Key}" />
+          <TextBlock Text="{Binding Subtitle}" Classes="caption" />
+        </StackPanel>
+        <TextBlock Grid.Column="2" Text="{Binding CountText}" Classes="caption" VerticalAlignment="Center" Margin="4,0" />
+        <ToggleSwitch Grid.Column="3" Classes="small" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" ToolTip.Tip="Record this app" />
+        <Button Grid.Column="4" Classes="icon" Content="{Binding StarGlyph}" Command="{Binding ToggleFavoriteCommand}" ToolTip.Tip="Favourite" />
+      </Grid>
+    </DataTemplate>
+  </Window.Resources>
+
+  <DockPanel>
+    <!-- toolbar -->
+    <Border DockPanel.Dock="Top" Padding="12,8" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource TsBorder}">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
+        <Image Grid.Column="0" Source="avares://TrafficScope/Resources/AppIcon.png" Width="26" Height="26" Margin="0,0,6,0" />
+        <Button Grid.Column="1" Classes="primary" Classes.stop="{Binding IsCapturing}" Command="{Binding ToggleCaptureCommand}" MinWidth="92" HorizontalContentAlignment="Center"
+                ToolTip.Tip="Start or stop recording the selected apps">
+          <TextBlock Text="{Binding RecordText}" />
+        </Button>
+        <Border Grid.Column="2" Background="{DynamicResource TsRecBg}" CornerRadius="999" Padding="10,3" VerticalAlignment="Center"
+                IsVisible="{Binding RecordingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Ellipse Width="7" Height="7" Fill="{DynamicResource TsDanger}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding RecordingText}" Foreground="{DynamicResource TsRecFg}" FontSize="12" />
+          </StackPanel>
+        </Border>
+        <Rectangle Grid.Column="3" Width="1" Height="20" Fill="{DynamicResource TsBorder}" Margin="6,0" />
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2">
+          <Button Classes="tool" Content="{Binding PauseText}" Command="{Binding TogglePauseCommand}" ToolTip.Tip="Keep the proxy running but stop recording for a moment" />
+          <Button Classes="tool" Content="Clear" Command="{Binding ClearCommand}" />
+          <Button Classes="tool" Content="Replay" Command="{Binding ReplayCommand}" ToolTip.Tip="Send the selected request again" />
+          <Button Classes="tool" Content="Edit and resend" Command="{Binding EditAndResendCommand}" />
+          <Button Classes="tool" Content="Compare" Command="{Binding CompareCommand}" ToolTip.Tip="Select two requests with Ctrl/Cmd+click, then compare" />
+          <Button Classes="tool" Content="Save" Command="{Binding SaveHarCommand}" ToolTip.Tip="Save all requests as a .har file" />
+        </StackPanel>
+        <TextBox Grid.Column="6" Text="{Binding FilterText}" Watermark="Search URL, app, status or body" Width="270" />
+        <Button Grid.Column="7" Classes="tool" Content="Tools ▾">
+          <Button.Flyout>
+            <MenuFlyout Placement="BottomEdgeAlignedRight">
+              <MenuItem Header="Mock responses…" Command="{Binding OpenMocksCommand}" />
+              <MenuItem Header="Breakpoints…" Command="{Binding OpenBreakpointsCommand}" />
+              <MenuItem Header="Settings (hosts, slow network, theme)…" Command="{Binding OpenSettingsCommand}" />
+              <Separator />
+              <MenuItem Header="Install certificate" Command="{Binding InstallCertificateCommand}" />
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- proxy left behind by a crash or force-quit -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource TsRecBg}" Padding="14,8" IsVisible="{Binding HasLeftoverProxy}">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="Your proxy is still switched on, but nothing is answering on it" FontWeight="Medium" Foreground="{DynamicResource TsRecFg}" />
+          <TextBlock Foreground="{DynamicResource TsRecFg}" FontSize="12" TextWrapping="Wrap">
+            <Run Text="A previous session did not close properly, so some apps may have no internet. Proxy:" />
+            <Run Text="{Binding LeftoverProxy}" />
+          </TextBlock>
+        </StackPanel>
+        <Button Grid.Column="1" Classes="primary stop" Content="Fix now" Command="{Binding FixLeftoverProxyCommand}" />
+      </Grid>
+    </Border>
+
+    <!-- first-run setup -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource TsBannerBg}" Padding="14,8" IsVisible="{Binding ShowSetup}">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="Set up once: trust the TrafficScope certificate" FontWeight="Medium" Foreground="{DynamicResource TsBannerFg}" />
+          <TextBlock Text="Without it, apps show certificate errors when you record. Then pick apps on the left and press Record." Foreground="{DynamicResource TsBannerFg}" FontSize="12" />
+        </StackPanel>
+        <Button Grid.Column="1" Classes="primary" Content="Install certificate" Command="{Binding InstallCertificateCommand}" />
+      </Grid>
+    </Border>
+
+    <!-- breakpoint notice -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource TsBreakBg}" Padding="14,6"
+            IsVisible="{Binding BreakpointBanner, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <TextBlock Text="{Binding BreakpointBanner}" Foreground="{DynamicResource TsBreakFg}" TextTrimming="CharacterEllipsis" />
+    </Border>
+
+    <!-- footer -->
+    <Border DockPanel.Dock="Bottom" Padding="12,5" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource TsBorder}" Background="{DynamicResource TsSidebar}">
+      <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="16">
+        <TextBlock Grid.Column="0" Text="{Binding FooterText}" Classes="caption" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="{Binding RulesSummary}" Classes="caption" Foreground="{DynamicResource TsAccent}" VerticalAlignment="Center" IsVisible="{Binding HasRules}" />
+        <TextBlock Grid.Column="2" Text="{Binding SelectedFlow.Url, FallbackValue=''}" Classes="caption" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <Grid ColumnDefinitions="260,1,*">
+      <!-- sidebar -->
+      <DockPanel Grid.Column="0" Background="{DynamicResource TsSidebar}">
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="10,10,10,0">
+          <Border Background="{DynamicResource TsChip}" CornerRadius="8" Padding="3">
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="3">
+              <Button Grid.Column="0" Classes="seg" Classes.on="{Binding ShowRunningTab}" Content="Running" Command="{Binding ShowRunningCommand}" />
+              <Button Grid.Column="1" Classes="seg" Classes.on="{Binding ShowInstalled}" Content="Installed" Command="{Binding ShowInstalledAppsCommand}" />
+            </Grid>
+          </Border>
+          <TextBox Text="{Binding AppSearch}" Watermark="Search apps" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="10,6,10,10" Spacing="4">
+          <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontSize="12" />
+          <TextBlock Text="{Binding SelectedSummary}" Classes="caption" />
+        </StackPanel>
+        <ScrollViewer Margin="4,0">
+          <StackPanel>
+            <TextBlock Text="Favourites" Classes="section" />
+            <TextBlock Text="Tap the star on an app to keep it here." Classes="caption" Margin="8,0,0,4" IsVisible="{Binding !Favorites.Count}" />
+            <ItemsControl ItemsSource="{Binding Favorites}" ItemTemplate="{StaticResource AppRow}" />
+            <TextBlock Text="Apps" Classes="section" />
+            <ItemsControl ItemsSource="{Binding Others}" ItemTemplate="{StaticResource AppRow}" />
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+      <Rectangle Grid.Column="1" Fill="{DynamicResource TsBorder}" />
+
+      <!-- traffic + inspector -->
+      <Grid Grid.Column="2" RowDefinitions="Auto,*,6,360">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="10,8,10,6">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <Button Classes="chip" Classes.on="{Binding IsAllFilter}" Content="{Binding AllChip}" Command="{Binding SetFilterCommand}" CommandParameter="All" />
+            <Button Classes="chip" Classes.on="{Binding IsErrorsFilter}" Content="{Binding ErrorsChip}" Command="{Binding SetFilterCommand}" CommandParameter="Errors" />
+            <Button Classes="chip" Classes.on="{Binding IsJsonFilter}" Content="JSON" Command="{Binding SetFilterCommand}" CommandParameter="Json" />
+            <Button Classes="chip" Classes.on="{Binding IsImagesFilter}" Content="Images" Command="{Binding SetFilterCommand}" CommandParameter="Images" />
+            <Button Classes="chip" Classes.on="{Binding IsSlowFilter}" Content="Slow &gt; 1 s" Command="{Binding SetFilterCommand}" CommandParameter="Slow" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Text="{Binding Toast}" Foreground="{DynamicResource TsAccent}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+          <CheckBox Grid.Column="2" IsChecked="{Binding ShowTunnels}" Content="{Binding TunnelText}" FontSize="12"
+                    ToolTip.Tip="Connections from your apps to hosts outside your decrypt-only list" />
+        </Grid>
+
+        <DataGrid Grid.Row="1" x:Name="FlowGrid" ItemsSource="{Binding Flows}" SelectedItem="{Binding SelectedFlow}" IsReadOnly="True"
+                  AutoGenerateColumns="False" GridLinesVisibility="None" CanUserResizeColumns="True" SelectionMode="Extended"
+                  HeadersVisibility="Column" RowHeight="30" BorderThickness="0">
+          <DataGrid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Copy URL" Command="{Binding CopyUrlCommand}" />
+              <MenuItem Header="Copy as cURL" Command="{Binding CopyCurlCommand}" />
+              <MenuItem Header="Send to Postman" Command="{Binding SendToPostmanCommand}" />
+              <Separator />
+              <MenuItem Header="Replay" Command="{Binding ReplayCommand}" />
+              <MenuItem Header="Edit and resend…" Command="{Binding EditAndResendCommand}" />
+              <MenuItem Header="Compare selected two" Command="{Binding CompareCommand}" />
+              <Separator />
+              <MenuItem Header="Mock this response…" Command="{Binding MockFromSelectedCommand}" />
+              <MenuItem Header="Add breakpoint for this URL…" Command="{Binding BreakpointFromSelectedCommand}" />
+            </ContextMenu>
+          </DataGrid.ContextMenu>
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="52" />
+            <DataGridTemplateColumn Header="Method" Width="88">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:FlowVm">
+                  <Border Background="{Binding MethodBg}" CornerRadius="5" Padding="6,1" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <TextBlock Text="{Binding Method}" Foreground="{Binding MethodFg}" FontSize="11" FontWeight="Medium" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Status" Width="82">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:FlowVm">
+                  <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <Ellipse Width="8" Height="8" Fill="{Binding StatusBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Status}" Foreground="{Binding StatusBrush}" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Host and path" Width="*">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:FlowVm">
+                  <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0" ToolTip.Tip="{Binding Url}">
+                    <TextBlock Text="{Binding Host}" FontWeight="Medium" />
+                    <TextBlock Text="{Binding PathText}" Classes="muted" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="" Width="70">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:FlowVm">
+                  <Border Background="{DynamicResource TsChipOn}" CornerRadius="5" Padding="6,1" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding HasTag}">
+                    <TextBlock Text="{Binding Tag}" Foreground="{DynamicResource TsChipOnText}" FontSize="11" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="App" Binding="{Binding App}" Width="120" />
+            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="90" />
+            <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="72" />
+            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="72" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Grid.Row="1" Text="No requests yet. Pick apps on the left, press Record, then use your app." Classes="muted"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !Flows.Count}" />
+
+        <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="{DynamicResource TsBorder}" Height="1" VerticalAlignment="Center" />
+
+        <!-- inspector -->
+        <Grid Grid.Row="3" Margin="10,0,10,8">
+          <TabControl x:Name="Inspector" Padding="0,6,0,0">
+            <TabItem Header="Body">
+              <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,*">
+                <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                  <TextBlock Text="Request" Classes="caption" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="icon" Command="{Binding CopyRequestBodyCommand}" ToolTip.Tip="Copy request body"><Path Classes="copy" /></Button>
+                </Grid>
+                <Border Grid.Row="1" Grid.Column="0" Classes="pane">
+                  <Panel>
+                    <TextBox Classes="mono" Text="{Binding RequestBodyText, Mode=OneWay}" IsVisible="{Binding RequestIsText}" />
+                    <TreeView ItemsSource="{Binding RequestTree}" IsVisible="{Binding RequestIsJson}" Classes="json" />
+                  </Panel>
+                </Border>
+                <Grid Grid.Row="0" Grid.Column="2" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                  <TextBlock Text="Response" Classes="caption" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="icon" Command="{Binding CopyResponseBodyCommand}" ToolTip.Tip="Copy response body"><Path Classes="copy" /></Button>
+                </Grid>
+                <Border Grid.Row="1" Grid.Column="2" Classes="pane">
+                  <Panel>
+                    <TextBox Classes="mono" Text="{Binding ResponseBodyText, Mode=OneWay}" IsVisible="{Binding ResponseIsText}" />
+                    <TreeView ItemsSource="{Binding ResponseTree}" IsVisible="{Binding ResponseIsJson}" Classes="json" />
+                    <Image Source="{Binding ResponseImage}" IsVisible="{Binding HasResponseImage}" Stretch="Uniform" MaxHeight="280" Margin="10" />
+                  </Panel>
+                </Border>
+              </Grid>
+            </TabItem>
+            <TabItem Header="Headers">
+              <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,*">
+                <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                  <TextBlock Text="Request headers" Classes="caption" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="icon" Command="{Binding CopyRequestHeadersCommand}" ToolTip.Tip="Copy request headers"><Path Classes="copy" /></Button>
+                </Grid>
+                <Border Grid.Row="1" Grid.Column="0" Classes="pane" Padding="10,6">
+                  <ScrollViewer>
+                    <StackPanel>
+                      <ItemsControl ItemsSource="{Binding RequestHeaders}" ItemTemplate="{StaticResource NameValueRow}" />
+                      <Expander Header="Token (JWT) decoded" IsVisible="{Binding HasJwt}" Margin="0,8,0,0" HorizontalAlignment="Stretch" IsExpanded="True">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <SelectableTextBlock Text="{Binding JwtText}" FontFamily="Menlo,Consolas,monospace" FontSize="12" TextWrapping="Wrap" />
+                          <Button Grid.Column="1" Classes="icon" VerticalAlignment="Top" Command="{Binding CopyJwtCommand}" ToolTip.Tip="Copy token details"><Path Classes="copy" /></Button>
+                        </Grid>
+                      </Expander>
+                    </StackPanel>
+                  </ScrollViewer>
+                </Border>
+                <Grid Grid.Row="0" Grid.Column="2" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                  <TextBlock Text="Response headers" Classes="caption" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="icon" Command="{Binding CopyResponseHeadersCommand}" ToolTip.Tip="Copy response headers"><Path Classes="copy" /></Button>
+                </Grid>
+                <Border Grid.Row="1" Grid.Column="2" Classes="pane" Padding="10,6">
+                  <ScrollViewer><ItemsControl ItemsSource="{Binding ResponseHeaders}" ItemTemplate="{StaticResource NameValueRow}" /></ScrollViewer>
+                </Border>
+              </Grid>
+            </TabItem>
+            <TabItem Header="Params">
+              <Border Classes="pane" Padding="12,8">
+                <ScrollViewer>
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="This request has no query string or form fields." Classes="muted" IsVisible="{Binding NoParams}" />
+                    <TextBlock Text="Query string" Classes="caption" IsVisible="{Binding HasQuery}" />
+                    <ItemsControl ItemsSource="{Binding QueryParams}" ItemTemplate="{StaticResource NameValueRow}" IsVisible="{Binding HasQuery}" />
+                    <TextBlock Text="Form fields (decoded)" Classes="caption" Margin="0,8,0,0" IsVisible="{Binding HasForm}" />
+                    <ItemsControl ItemsSource="{Binding FormFields}" ItemTemplate="{StaticResource NameValueRow}" IsVisible="{Binding HasForm}" />
+                  </StackPanel>
+                </ScrollViewer>
+              </Border>
+            </TabItem>
+            <TabItem Header="Cookies">
+              <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Sent by the app" Classes="caption" Margin="2,0,0,4" />
+                <Border Grid.Row="1" Grid.Column="0" Classes="pane" Padding="10,6">
+                  <ScrollViewer><ItemsControl ItemsSource="{Binding RequestCookies}" ItemTemplate="{StaticResource NameValueRow}" /></ScrollViewer>
+                </Border>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="Set by the server" Classes="caption" Margin="2,0,0,4" />
+                <Border Grid.Row="1" Grid.Column="2" Classes="pane" Padding="10,6">
+                  <ScrollViewer><ItemsControl ItemsSource="{Binding ResponseCookies}" ItemTemplate="{StaticResource NameValueRow}" /></ScrollViewer>
+                </Border>
+              </Grid>
+            </TabItem>
+            <TabItem Header="Timing">
+              <Border Classes="pane" Padding="12,8">
+                <ScrollViewer><ItemsControl ItemsSource="{Binding TimingRows}" ItemTemplate="{StaticResource NameValueRow}" /></ScrollViewer>
+              </Border>
+            </TabItem>
+            <TabItem Header="Raw">
+              <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,*">
+                <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                  <TextBlock Text="Request" Classes="caption" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="icon" Command="{Binding CopyRequestCommand}" ToolTip.Tip="Copy request"><Path Classes="copy" /></Button>
+                </Grid>
+                <Border Grid.Row="1" Grid.Column="0" Classes="pane"><TextBox Classes="mono" Text="{Binding RequestText, Mode=OneWay}" /></Border>
+                <Grid Grid.Row="0" Grid.Column="2" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                  <TextBlock Text="Response" Classes="caption" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="icon" Command="{Binding CopyResponseCommand}" ToolTip.Tip="Copy response"><Path Classes="copy" /></Button>
+                </Grid>
+                <Border Grid.Row="1" Grid.Column="2" Classes="pane"><TextBox Classes="mono" Text="{Binding ResponseText, Mode=OneWay}" /></Border>
+              </Grid>
+            </TabItem>
+          </TabControl>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Spacing="2" Margin="0,2,0,0">
+            <Button Classes="tool" Content="{Binding TreeToggleText}" Command="{Binding ToggleTreeCommand}" ToolTip.Tip="Switch JSON between tree and raw text" FontSize="12" />
+            <Button Classes="tool" Content="Expand all" Command="{Binding ExpandAllCommand}" FontSize="12" />
+            <Button Classes="tool" Content="Collapse all" Command="{Binding CollapseAllCommand}" FontSize="12" />
+            <Rectangle Width="1" Height="18" Fill="{DynamicResource TsBorder}" Margin="4,0" />
+            <Button Classes="tool" Content="Copy cURL" Command="{Binding CopyCurlCommand}" FontSize="12" />
+            <Button Classes="tool" Content="Send to Postman" Command="{Binding SendToPostmanCommand}" FontSize="12" Foreground="{DynamicResource TsAccent}"
+                    ToolTip.Tip="Save this request to your Postman workspace (Tools > Settings > Postman)" />
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Grid>
+  </DockPanel>
+
+  <Window.Styles>
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsChipOn}" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsChipOn}" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="TreeView.json"><Setter Property="Padding" Value="4" /><Setter Property="Background" Value="Transparent" /></Style>
+    <Style Selector="TreeView.json TreeViewItem" x:DataType="vm:JsonNodeVm">
+      <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+      <Setter Property="MinHeight" Value="22" /><Setter Property="Padding" Value="0" />
+    </Style>
+  </Window.Styles>
+  <Window.DataTemplates>
+    <TreeDataTemplate DataType="vm:JsonNodeVm" ItemsSource="{Binding Children}">
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <SelectableTextBlock Text="{Binding Name}" Foreground="{DynamicResource TsKey}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
+        <TextBlock Text=":" Classes="muted" FontSize="12" />
+        <SelectableTextBlock Text="{Binding Value}" Foreground="{Binding ValueBrush}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
+      </StackPanel>
+    </TreeDataTemplate>
+  </Window.DataTemplates>
+</Window>

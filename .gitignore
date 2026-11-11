@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+dist/
+*.dmg
+
+# IDE and OS
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store
+
+# Test output
+TestResults/
+*.trx
+
+# Secrets and local data (never commit)
+*.pfx
+*.cer
+*.pem
+*.secret
+*.har
+settings.json
+favorites.json

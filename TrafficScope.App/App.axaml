@@ -1,0 +1,125 @@
+<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TrafficScope.App" RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <Color x:Key="SystemAccentColor">#6D4AFF</Color>
+      <Color x:Key="SystemAccentColorDark1">#5B3BE0</Color>
+      <Color x:Key="SystemAccentColorDark2">#4A2FC2</Color>
+      <Color x:Key="SystemAccentColorLight1">#8B6CFF</Color>
+      <Color x:Key="SystemAccentColorLight2">#A792FF</Color>
+      <SolidColorBrush x:Key="TsAccent" Color="#6D4AFF" />
+      <SolidColorBrush x:Key="TsDanger" Color="#D93A3A" />
+      <StreamGeometry x:Key="CopyIcon">M9 9H19V19H9Z M5 15V5H15</StreamGeometry>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="TsWindow" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="TsSidebar" Color="#F7F6FB" />
+          <SolidColorBrush x:Key="TsPane" Color="#F6F6F8" />
+          <SolidColorBrush x:Key="TsBorder" Color="#1A000000" />
+          <SolidColorBrush x:Key="TsMuted" Color="#7C7C86" />
+          <SolidColorBrush x:Key="TsText" Color="#1D1D22" />
+          <SolidColorBrush x:Key="TsChip" Color="#EEEDF4" />
+          <SolidColorBrush x:Key="TsChipOn" Color="#E5DEFF" />
+          <SolidColorBrush x:Key="TsChipOnText" Color="#4A2FC2" />
+          <SolidColorBrush x:Key="TsHover" Color="#0D000000" />
+          <SolidColorBrush x:Key="TsBannerBg" Color="#FFF3DC" />
+          <SolidColorBrush x:Key="TsBannerFg" Color="#7A4E00" />
+          <SolidColorBrush x:Key="TsBreakBg" Color="#E8F0FE" />
+          <SolidColorBrush x:Key="TsBreakFg" Color="#174EA6" />
+          <SolidColorBrush x:Key="TsRecBg" Color="#FDE7E7" />
+          <SolidColorBrush x:Key="TsRecFg" Color="#B42323" />
+          <SolidColorBrush x:Key="TsKey" Color="#5B3BE0" />
+          <SolidColorBrush x:Key="TsDiffAdd" Color="#DDF4E4" />
+          <SolidColorBrush x:Key="TsDiffDel" Color="#FBE2E2" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="TsWindow" Color="#1C1C21" />
+          <SolidColorBrush x:Key="TsSidebar" Color="#222228" />
+          <SolidColorBrush x:Key="TsPane" Color="#26262D" />
+          <SolidColorBrush x:Key="TsBorder" Color="#24FFFFFF" />
+          <SolidColorBrush x:Key="TsMuted" Color="#9A9AA6" />
+          <SolidColorBrush x:Key="TsText" Color="#ECECF1" />
+          <SolidColorBrush x:Key="TsChip" Color="#2E2E36" />
+          <SolidColorBrush x:Key="TsChipOn" Color="#3A2F73" />
+          <SolidColorBrush x:Key="TsChipOnText" Color="#D9CFFF" />
+          <SolidColorBrush x:Key="TsHover" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="TsBannerBg" Color="#3D2F12" />
+          <SolidColorBrush x:Key="TsBannerFg" Color="#F5D08A" />
+          <SolidColorBrush x:Key="TsBreakBg" Color="#1B2B45" />
+          <SolidColorBrush x:Key="TsBreakFg" Color="#A8C7FA" />
+          <SolidColorBrush x:Key="TsRecBg" Color="#4A1F1F" />
+          <SolidColorBrush x:Key="TsRecFg" Color="#FFB4B4" />
+          <SolidColorBrush x:Key="TsKey" Color="#B7A6FF" />
+          <SolidColorBrush x:Key="TsDiffAdd" Color="#1E3A28" />
+          <SolidColorBrush x:Key="TsDiffDel" Color="#4A2222" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <Style Selector="Window"><Setter Property="Background" Value="{DynamicResource TsWindow}" /></Style>
+    <Style Selector="TextBlock.caption"><Setter Property="FontSize" Value="11" /><Setter Property="Foreground" Value="{DynamicResource TsMuted}" /></Style>
+    <Style Selector="TextBlock.section"><Setter Property="FontSize" Value="11" /><Setter Property="Foreground" Value="{DynamicResource TsMuted}" /><Setter Property="Margin" Value="8,10,0,4" /></Style>
+    <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="{DynamicResource TsMuted}" /></Style>
+
+    <!-- toolbar buttons -->
+    <Style Selector="Button.tool">
+      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,5" /><Setter Property="FontSize" Value="13" /><Setter Property="CornerRadius" Value="7" />
+    </Style>
+    <Style Selector="Button.tool:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsHover}" /></Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource TsAccent}" /><Setter Property="Foreground" Value="White" />
+      <Setter Property="CornerRadius" Value="8" /><Setter Property="Padding" Value="14,6" /><Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#5B3BE0" /><Setter Property="Foreground" Value="White" /></Style>
+    <Style Selector="Button.primary.stop"><Setter Property="Background" Value="{DynamicResource TsDanger}" /></Style>
+    <Style Selector="Button.primary.stop:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#B82E2E" /></Style>
+
+    <!-- filter chips and segmented buttons -->
+    <Style Selector="Button.chip">
+      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="999" /><Setter Property="Padding" Value="11,4" /><Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TsMuted}" />
+    </Style>
+    <Style Selector="Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsHover}" /></Style>
+    <Style Selector="Button.chip.on"><Setter Property="Background" Value="{DynamicResource TsChipOn}" /><Setter Property="Foreground" Value="{DynamicResource TsChipOnText}" /></Style>
+    <Style Selector="Button.chip.on:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsChipOn}" /><Setter Property="Foreground" Value="{DynamicResource TsChipOnText}" /></Style>
+    <Style Selector="Button.seg">
+      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="CornerRadius" Value="6" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" /><Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="Padding" Value="6,4" />
+      <Setter Property="Foreground" Value="{DynamicResource TsMuted}" />
+    </Style>
+    <Style Selector="Button.seg.on"><Setter Property="Background" Value="{DynamicResource TsWindow}" /><Setter Property="Foreground" Value="{DynamicResource TsText}" /></Style>
+    <Style Selector="Button.seg.on:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsWindow}" /></Style>
+
+    <!-- small icon buttons (copy, star) -->
+    <Style Selector="Button.icon">
+      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="4" /><Setter Property="Width" Value="26" /><Setter Property="Height" Value="26" /><Setter Property="CornerRadius" Value="6" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource TsMuted}" />
+    </Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsHover}" /></Style>
+    <Style Selector="Path.copy">
+      <Setter Property="Data" Value="{StaticResource CopyIcon}" /><Setter Property="Stroke" Value="{DynamicResource TsMuted}" />
+      <Setter Property="StrokeThickness" Value="1.6" /><Setter Property="Width" Value="13" /><Setter Property="Height" Value="13" /><Setter Property="Stretch" Value="Uniform" />
+    </Style>
+
+    <Style Selector="Border.pane"><Setter Property="Background" Value="{DynamicResource TsPane}" /><Setter Property="CornerRadius" Value="8" /></Style>
+    <Style Selector="TextBox.mono">
+      <Setter Property="FontFamily" Value="Menlo,Consolas,monospace" /><Setter Property="FontSize" Value="12" />
+      <Setter Property="IsReadOnly" Value="True" /><Setter Property="AcceptsReturn" Value="True" /><Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="10,8,30,8" />
+    </Style>
+    <Style Selector="TextBox.mono:pointerover /template/ Border#PART_BorderElement"><Setter Property="Background" Value="Transparent" /></Style>
+    <Style Selector="TextBox.mono:focus /template/ Border#PART_BorderElement"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /></Style>
+    <Style Selector="TextBox.edit"><Setter Property="FontFamily" Value="Menlo,Consolas,monospace" /><Setter Property="FontSize" Value="12" /><Setter Property="AcceptsReturn" Value="True" /><Setter Property="TextWrapping" Value="Wrap" /></Style>
+    <Style Selector="TabItem"><Setter Property="FontSize" Value="13" /><Setter Property="MinHeight" Value="34" /><Setter Property="Padding" Value="10,0" /></Style>
+    <Style Selector="DataGrid"><Setter Property="FontSize" Value="12.5" /></Style>
+    <Style Selector="DataGridColumnHeader"><Setter Property="FontSize" Value="11.5" /><Setter Property="Foreground" Value="{DynamicResource TsMuted}" /></Style>
+    <Style Selector="ToggleSwitch.small"><Setter Property="OnContent" Value="" /><Setter Property="OffContent" Value="" /><Setter Property="MinWidth" Value="0" /></Style>
+  </Application.Styles>
+</Application>

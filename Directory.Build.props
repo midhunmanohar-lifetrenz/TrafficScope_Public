@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.3.0</Version>
+    <Company>Lifetrenz</Company>
+    <Product>TrafficScope</Product>
+    <Authors>Lifetrenz</Authors>
+    <Copyright>© 2026 Lifetrenz</Copyright>
+  </PropertyGroup>
+</Project>

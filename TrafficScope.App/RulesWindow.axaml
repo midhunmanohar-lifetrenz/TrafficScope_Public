@@ -1,0 +1,143 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TrafficScope.ViewModels" xmlns:core="using:TrafficScope.Core" x:Class="TrafficScope.RulesWindow" x:DataType="vm:RulesVm"
+        Title="TrafficScope tools" Width="880" Height="620" MinWidth="720" MinHeight="480" WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="14">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <TextBlock Text="Changes apply to new requests when you press Done." Classes="caption" VerticalAlignment="Center" Margin="0,0,10,0" />
+      <Button Classes="primary" Content="Done" Click="OnDone" MinWidth="90" HorizontalContentAlignment="Center" />
+    </StackPanel>
+    <TabControl SelectedIndex="{Binding SelectedTab}">
+      <TabItem Header="Mock responses">
+        <Grid ColumnDefinitions="280,14,*" Margin="0,10,0,0">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+              <TextBlock Text="Answer matching requests with your own response. The server is not called." TextWrapping="Wrap" Classes="muted" FontSize="12" />
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+              <Button Content="Add mock" Command="{Binding AddMockCommand}" />
+              <Button Content="Delete" Command="{Binding DeleteMockCommand}" IsEnabled="{Binding HasMock}" />
+            </StackPanel>
+            <ListBox ItemsSource="{Binding Mocks}" SelectedItem="{Binding SelectedMock}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:MockRuleVm">
+                  <Grid ColumnDefinitions="Auto,*">
+                    <CheckBox IsChecked="{Binding Enabled}" MinWidth="0" Margin="0,0,6,0" />
+                    <StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding Summary}" Classes="caption" TextTrimming="CharacterEllipsis" /></StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+          <ScrollViewer Grid.Column="2" IsVisible="{Binding HasMock}">
+            <StackPanel Spacing="6" DataContext="{Binding SelectedMock}" x:DataType="vm:MockRuleVm">
+              <TextBlock Text="Name" Classes="caption" /><TextBox Text="{Binding Name}" />
+              <Grid ColumnDefinitions="120,10,*,10,110">
+                <StackPanel><TextBlock Text="Method (blank = any)" Classes="caption" /><TextBox Text="{Binding Method}" Watermark="GET" /></StackPanel>
+                <StackPanel Grid.Column="2"><TextBlock Text="URL contains" Classes="caption" /><TextBox Text="{Binding UrlContains}" Watermark="/api/orders" /></StackPanel>
+                <StackPanel Grid.Column="4"><TextBlock Text="Status" Classes="caption" /><TextBox Text="{Binding Status}" Watermark="200" /></StackPanel>
+              </Grid>
+              <TextBlock Text="Content type" Classes="caption" /><TextBox Text="{Binding ContentType}" />
+              <TextBlock Text="Extra headers (one per line, Name: value)" Classes="caption" /><TextBox Classes="edit" Text="{Binding ExtraHeaders}" Height="60" />
+              <TextBlock Text="Response body" Classes="caption" /><TextBox Classes="edit" Text="{Binding Body}" Height="180" />
+            </StackPanel>
+          </ScrollViewer>
+          <TextBlock Grid.Column="2" Text="Add a mock, or right-click a request and choose Mock this response." Classes="muted" IsVisible="{Binding !HasMock}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        </Grid>
+      </TabItem>
+      <TabItem Header="Breakpoints">
+        <Grid ColumnDefinitions="280,14,*" Margin="0,10,0,0">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="Pause matching requests so you can edit them before they are sent, or edit the response before the app gets it." TextWrapping="Wrap" Classes="muted" FontSize="12" Margin="0,0,0,8" />
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+              <Button Content="Add breakpoint" Command="{Binding AddBreakpointCommand}" />
+              <Button Content="Delete" Command="{Binding DeleteBreakpointCommand}" IsEnabled="{Binding HasBreakpoint}" />
+            </StackPanel>
+            <ListBox ItemsSource="{Binding Breakpoints}" SelectedItem="{Binding SelectedBreakpoint}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:BreakpointRuleVm">
+                  <Grid ColumnDefinitions="Auto,*">
+                    <CheckBox IsChecked="{Binding Enabled}" MinWidth="0" Margin="0,0,6,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+          <Border Grid.Column="2" IsVisible="{Binding HasBreakpoint}"><StackPanel Spacing="8" DataContext="{Binding SelectedBreakpoint}" x:DataType="vm:BreakpointRuleVm">
+            <Grid ColumnDefinitions="120,10,*">
+              <StackPanel><TextBlock Text="Method (blank = any)" Classes="caption" /><TextBox Text="{Binding Method}" /></StackPanel>
+              <StackPanel Grid.Column="2"><TextBlock Text="URL contains" Classes="caption" /><TextBox Text="{Binding UrlContains}" /></StackPanel>
+            </Grid>
+            <CheckBox Content="Pause before the request is sent" IsChecked="{Binding OnRequest}" />
+            <CheckBox Content="Pause before the response reaches the app" IsChecked="{Binding OnResponse}" />
+            <TextBlock Text="While paused, the app waits. Press Continue in the editor to let it go." Classes="caption" TextWrapping="Wrap" />
+          </StackPanel></Border>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Settings">
+        <ScrollViewer Margin="0,10,0,0">
+          <StackPanel Spacing="14" MaxWidth="620" HorizontalAlignment="Left">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Decrypt only these hosts" FontWeight="Medium" />
+              <TextBlock Text="One per line, for example *.example.com. Leave empty to decrypt every host your selected apps call. Other hosts are passed through untouched and shown as tunnels." TextWrapping="Wrap" Classes="caption" />
+              <TextBox Classes="edit" Text="{Binding DecryptOnlyText}" Height="90" Watermark="*.example.com" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Text="Slow network" FontWeight="Medium" />
+              <TextBlock Text="Adds a delay to every recorded request, to test loading states and timeouts." Classes="caption" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="Off" Command="{Binding SetDelayCommand}" CommandParameter="0" />
+                <Button Content="300 ms" Command="{Binding SetDelayCommand}" CommandParameter="300" />
+                <Button Content="1 s" Command="{Binding SetDelayCommand}" CommandParameter="1000" />
+                <Button Content="3 s" Command="{Binding SetDelayCommand}" CommandParameter="3000" />
+                <TextBox Text="{Binding DelayText}" Width="90" />
+                <TextBlock Text="ms" VerticalAlignment="Center" Classes="muted" />
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Spacing="6" IsVisible="{Binding IsMac}">
+              <TextBlock Text="Proxy permission" FontWeight="Medium" />
+              <TextBlock Text="Record and Stop change your Mac's proxy settings, which normally needs your password every time. Allow it once and TrafficScope can switch only the HTTP/HTTPS proxy on and off without asking. Note: any program running as you could then switch your proxy without a password too. You can remove it here at any time." TextWrapping="Wrap" Classes="caption" />
+              <TextBlock Text="{Binding PermissionStatus}" TextWrapping="Wrap" FontSize="12" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Classes="primary" Content="Don't ask for my password" Command="{Binding InstallProxyPermissionCommand}" IsVisible="{Binding PermissionMissing}" IsEnabled="{Binding !PermissionBusy}" />
+                <Button Content="Remove permission" Command="{Binding RemoveProxyPermissionCommand}" IsVisible="{Binding PermissionInstalled}" IsEnabled="{Binding !PermissionBusy}" />
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Text="Privacy" FontWeight="Medium" />
+              <CheckBox Content="Mask Authorization, cookies and API keys when copying or saving" IsChecked="{Binding MaskSecrets}" />
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Postman" FontWeight="Medium" />
+              <TextBlock Text="Send to Postman saves the selected request into a collection in your Postman workspace. It syncs to the Postman app, where you open it and press Send. Headers and body are uploaded to Postman's cloud; turn on masking above to hide tokens." TextWrapping="Wrap" Classes="caption" />
+              <TextBlock Text="{Binding PostmanStatus}" TextWrapping="Wrap" FontSize="12" />
+              <StackPanel Spacing="6" IsVisible="{Binding IsPostmanDisconnected}">
+                <TextBlock Text="API key (Postman: avatar > Settings > API keys > Generate API key)" Classes="caption" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBox Text="{Binding PostmanKeyInput}" PasswordChar="•" Width="360" Watermark="PMAK-…" />
+                  <Button Classes="primary" Content="Connect" Command="{Binding ConnectPostmanCommand}" IsEnabled="{Binding !IsPostmanBusy}" />
+                </StackPanel>
+              </StackPanel>
+              <Grid ColumnDefinitions="260,10,200,10,Auto" IsVisible="{Binding IsPostmanConnected}">
+                <StackPanel><TextBlock Text="Workspace" Classes="caption" />
+                  <ComboBox ItemsSource="{Binding Workspaces}" SelectedItem="{Binding SelectedWorkspace}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="core:PostmanWorkspace"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="2"><TextBlock Text="Collection" Classes="caption" /><TextBox Text="{Binding PostmanCollection}" /></StackPanel>
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                  <Button Content="Refresh" Command="{Binding ConnectPostmanCommand}" IsEnabled="{Binding !IsPostmanBusy}" />
+                  <Button Content="Disconnect" Command="{Binding DisconnectPostmanCommand}" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Text="Appearance" FontWeight="Medium" />
+              <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" Width="160" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

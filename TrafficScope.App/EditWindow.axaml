@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TrafficScope.EditWindow" Title="Edit request" Width="820" Height="640" MinWidth="620" MinHeight="460" WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="14">
+    <TextBlock DockPanel.Dock="Top" x:Name="Heading" FontSize="15" FontWeight="Medium" Margin="0,0,0,10" TextWrapping="Wrap" />
+    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+      <TextBlock x:Name="Hint" Classes="caption" VerticalAlignment="Center" TextWrapping="Wrap" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+        <Button x:Name="SecondaryButton" Click="OnSecondary" />
+        <Button x:Name="PrimaryButton" Classes="primary" Click="OnPrimary" MinWidth="110" HorizontalContentAlignment="Center" />
+      </StackPanel>
+    </Grid>
+    <Grid RowDefinitions="Auto,Auto,Auto,140,Auto,*" >
+      <Grid Grid.Row="0" ColumnDefinitions="110,10,*" x:Name="RequestLine">
+        <StackPanel><TextBlock Text="Method" Classes="caption" /><TextBox x:Name="MethodBox" /></StackPanel>
+        <StackPanel Grid.Column="2"><TextBlock Text="URL" Classes="caption" /><TextBox x:Name="UrlBox" /></StackPanel>
+      </Grid>
+      <StackPanel Grid.Row="1" x:Name="StatusLine" Margin="0,6,0,0">
+        <TextBlock Text="Status code" Classes="caption" /><TextBox x:Name="StatusBox" Width="110" HorizontalAlignment="Left" />
+      </StackPanel>
+      <TextBlock Grid.Row="2" Text="Headers (one per line, Name: value)" Classes="caption" Margin="0,10,0,2" />
+      <TextBox Grid.Row="3" x:Name="HeadersBox" Classes="edit" />
+      <TextBlock Grid.Row="4" Text="Body" Classes="caption" Margin="0,10,0,2" />
+      <TextBox Grid.Row="5" x:Name="BodyBox" Classes="edit" />
+    </Grid>
+  </DockPanel>
+</Window>

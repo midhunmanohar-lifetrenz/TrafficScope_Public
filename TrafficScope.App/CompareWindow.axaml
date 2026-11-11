@@ -1,0 +1,25 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TrafficScope.ViewModels" x:Class="TrafficScope.CompareWindow"
+        Title="Compare requests" Width="980" Height="700" WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <DataTemplate x:Key="Line" x:DataType="vm:DiffLineVm">
+      <Border Background="{Binding Background}" Padding="8,0">
+        <Grid ColumnDefinitions="20,*">
+          <TextBlock Text="{Binding Prefix}" FontFamily="Menlo,Consolas,monospace" FontSize="12" Classes="muted" />
+          <SelectableTextBlock Grid.Column="1" Text="{Binding Text}" FontFamily="Menlo,Consolas,monospace" FontSize="12" TextWrapping="Wrap" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+  <DockPanel Margin="14">
+    <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,10">
+      <TextBlock x:Name="LeftTitle" Foreground="#E24B4A" TextTrimming="CharacterEllipsis" />
+      <TextBlock x:Name="RightTitle" Foreground="#2E9E5B" TextTrimming="CharacterEllipsis" />
+      <TextBlock x:Name="SummaryText" Classes="caption" />
+    </StackPanel>
+    <TabControl>
+      <TabItem Header="Request"><Border Classes="pane" Padding="0,6"><ScrollViewer><ItemsControl x:Name="ReqLines" ItemTemplate="{StaticResource Line}" /></ScrollViewer></Border></TabItem>
+      <TabItem Header="Response"><Border Classes="pane" Padding="0,6"><ScrollViewer><ItemsControl x:Name="ResLines" ItemTemplate="{StaticResource Line}" /></ScrollViewer></Border></TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>
