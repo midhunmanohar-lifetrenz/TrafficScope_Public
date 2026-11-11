@@ -81,7 +81,10 @@ Tips
 - If TrafficScope ever quits while recording, open it again and press "Fix now"
   on the red bar to switch your proxy off.
 TXT
-  hdiutil create -quiet -volname "TrafficScope ${VERSION}" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+  # hdiutil create is deprecated on newer macOS and can fail with "Resource busy";
+  # fall back to its replacement, diskutil image create.
+  hdiutil create -quiet -volname "TrafficScope ${VERSION}" -srcfolder "$STAGE" -ov -format UDZO "$DMG" 2>/dev/null \
+    || diskutil image create from --format UDZO --volumeName "TrafficScope ${VERSION}" "$STAGE" "$DMG"
   rm -rf "$STAGE"
   echo "    $DMG"
 }
