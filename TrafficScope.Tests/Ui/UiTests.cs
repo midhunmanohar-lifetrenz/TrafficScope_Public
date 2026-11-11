@@ -394,4 +394,52 @@ public class UiTests
         }
         finally { MainViewModel.DetectLeftoverProxy = () => (false, ""); MainViewModel.RestoreProxy = SystemProxy.Disable; }
     }
+
+    [AvaloniaFact]
+    public async Task EmptyListExplainsTunnelsOutsideDecryptList()
+    {
+        var w = new MainWindow(); var vm = w.ViewModel; vm.Ui = new FakeUi();
+        vm.ShowTunnels = false;
+        vm.Settings.DecryptOnlyHosts = new() { "example.com" };
+        Assert.True(vm.ShowStartHint);
+        for (var i = 0; i < 3; i++)
+            vm.AddFlow(new Flow { Id = 100 + i, AppName = "SampleClinic", Method = "CONNECT", Url = "https://prod-eu.example-clinic.test:443",
+                Host = i == 2 ? "files.example-clinic.test" : "prod-eu.example-clinic.test", IsTunnel = true, StatusCode = 200 });
+        Assert.Empty(vm.Flows);
+        Assert.True(vm.ShowTunnelHint); Assert.False(vm.ShowStartHint);
+        Assert.Equal("3 connections were recorded but not decrypted", vm.TunnelHintTitle);
+        Assert.Contains("prod-eu.example-clinic.test, files.example-clinic.test", vm.TunnelHintDetail);
+        Assert.Contains("(example.com)", vm.TunnelHintDetail);
+        Assert.Equal("Decrypt example-clinic.test", vm.DecryptSuggestedText);
+        w.Show(); Dispatcher.UIThread.RunJobs();
+        Assert.True(w.FindControl<Border>("TunnelHint")!.IsVisible);
+        vm.Settings.Theme = "Dark"; vm.ApplyTheme();
+        Shot(w, "20-tunnel-hint-dark");
+
+        await vm.DecryptSuggestedCommand.ExecuteAsync(null);
+        Assert.Equal(new[] { "example.com", "example-clinic.test" }, vm.Settings.DecryptOnlyHosts);
+        Assert.False(vm.ShowTunnelHint);
+        Assert.True(vm.ShowStartHint);
+        Assert.Equal(new[] { "example.com", "example-clinic.test" }, new SettingsStore().Load().DecryptOnlyHosts);
+
+        vm.Settings.DecryptOnlyHosts = new() { "example.com" }; vm.SaveSettings();
+        Assert.True(vm.ShowTunnelHint);
+        await vm.DecryptAllHostsCommand.ExecuteAsync(null);
+        Assert.Empty(vm.Settings.DecryptOnlyHosts);
+        Assert.False(vm.ShowTunnelHint);
+        vm.Settings.Theme = "Light"; vm.ApplyTheme();
+        w.Close();
+    }
+
+    [AvaloniaFact]
+    public void EmptyListExplainsActiveFilter()
+    {
+        var (_, vm, _) = Open(false);
+        vm.FilterText = "no-such-request-anywhere";
+        Assert.Empty(vm.Flows);
+        Assert.True(vm.ShowFilterHint); Assert.False(vm.ShowStartHint); Assert.False(vm.ShowTunnelHint);
+        vm.ClearFiltersCommand.Execute(null);
+        Assert.NotEmpty(vm.Flows);
+        Assert.False(vm.ShowFilterHint);
+    }
 }

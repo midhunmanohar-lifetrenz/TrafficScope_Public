@@ -219,7 +219,25 @@
           </DataGrid.Columns>
         </DataGrid>
         <TextBlock Grid.Row="1" Text="No requests yet. Pick apps on the left, press Record, then use your app." Classes="muted"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !Flows.Count}" />
+                   HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowStartHint}" />
+        <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding ShowFilterHint}">
+          <TextBlock Text="No requests match the current filter or search." Classes="muted" HorizontalAlignment="Center" />
+          <Button Classes="tool" Content="Clear filter" Command="{Binding ClearFiltersCommand}" HorizontalAlignment="Center" />
+        </StackPanel>
+        <Border x:Name="TunnelHint" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="620" Padding="20,16"
+                CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource TsBorder}" Background="{DynamicResource TsPane}"
+                IsVisible="{Binding ShowTunnelHint}">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{Binding TunnelHintTitle}" FontWeight="SemiBold" FontSize="15" />
+            <TextBlock Text="{Binding TunnelHintDetail}" Classes="muted" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+              <Button Classes="primary" Content="{Binding DecryptSuggestedText}" Command="{Binding DecryptSuggestedCommand}" />
+              <Button Classes="tool" Content="Decrypt all hosts" Command="{Binding DecryptAllHostsCommand}"
+                      ToolTip.Tip="Empty the decrypt-only list so every host of the selected apps is decrypted" />
+              <Button Classes="tool" Content="Edit list…" Command="{Binding OpenSettingsCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
 
         <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="{DynamicResource TsBorder}" Height="1" VerticalAlignment="Center" />
 

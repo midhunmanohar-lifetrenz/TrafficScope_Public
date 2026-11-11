@@ -84,4 +84,24 @@ public static class HostPattern
     }
 
     public static bool MatchesAny(string host, IEnumerable<string> patterns) => patterns.Any(p => Matches(host, p));
+
+    /// <summary>
+    /// The site a host belongs to, as a decrypt-only entry that also covers its subdomains:
+    /// "prod-eu.example.com" -> "example.com", "api.shop.co.uk" -> "shop.co.uk". IPs and single labels stay as-is.
+    /// </summary>
+    public static string Suggest(string host)
+    {
+        host = host.Trim().TrimEnd('.').ToLowerInvariant();
+        if (host.Length == 0 || System.Net.IPAddress.TryParse(host.Trim('[', ']'), out _)) return host;
+        var labels = host.Split('.');
+        if (labels.Length <= 2) return host;
+        // country-code second levels such as co.uk, com.au, co.in, org.in
+        var keep = labels[^1].Length == 2 && labels[^2].Length <= 3 ? 3 : 2;
+        return string.Join('.', labels[^Math.Min(keep, labels.Length)..]);
+    }
+
+    /// <summary>Distinct suggestions for the given hosts, most frequent first.</summary>
+    public static List<string> SuggestAll(IEnumerable<string> hosts) =>
+        hosts.Where(h => !string.IsNullOrWhiteSpace(h)).Select(Suggest).GroupBy(s => s)
+            .OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Key).ToList();
 }

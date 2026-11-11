@@ -115,6 +115,23 @@ public class InspectorTests
     [InlineData("example.org", "*.example.com", false)]
     public void HostPatterns(string host, string pattern, bool expected) => Assert.Equal(expected, HostPattern.Matches(host, pattern));
 
+    [Theory]
+    [InlineData("prod-eu.example-clinic.test", "example-clinic.test")]
+    [InlineData("example.com", "example.com")]
+    [InlineData("a.b.api.example.com", "example.com")]
+    [InlineData("api.shop.co.uk", "shop.co.uk")]
+    [InlineData("10.0.0.5", "10.0.0.5")]
+    [InlineData("localhost", "localhost")]
+    public void SuggestsSiteForHost(string host, string expected)
+    {
+        Assert.Equal(expected, HostPattern.Suggest(host));
+        Assert.True(HostPattern.Matches(host, HostPattern.Suggest(host)));
+    }
+
+    [Fact]
+    public void SuggestAllIsDistinctAndMostFrequentFirst() =>
+        Assert.Equal(new[] { "b.test", "a.test" }, HostPattern.SuggestAll(new[] { "x.a.test", "x.b.test", "y.b.test", "" }));
+
     [Fact]
     public void FiltersWork()
     {
