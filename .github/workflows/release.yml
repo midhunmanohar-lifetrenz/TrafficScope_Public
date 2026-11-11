@@ -1,0 +1,68 @@
+name: release
+
+# Push a tag such as v0.3.0 to build the dmg, Setup.exe and portable zip,
+# smoke-test the installer on a real Windows machine, and publish a GitHub release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest   # Apple Silicon runner; also cross-builds the Windows files
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { global-json-file: global.json }
+      - run: dotnet test TrafficScope.sln -c Release
+      - run: ./publish.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: |
+            dist/TrafficScope-*
+            dist/SHA256SUMS-*
+
+  windows-smoke:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: release, path: out }
+      - name: Install silently, launch, uninstall
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem out/*-Windows-Setup.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/S','/nodesktop' -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\TrafficScope\TrafficScope.exe"
+          if (-not (Test-Path $exe)) { throw "Installed EXE not found at $exe" }
+          $p = Start-Process $exe -PassThru; Start-Sleep 12
+          if ($p.HasExited) { throw "Installed app exited early ($($p.ExitCode))" }
+          Write-Host "App still running after 12 seconds"
+          Stop-Process -Id $p.Id -Force; Start-Sleep 2
+          $un = "$env:LOCALAPPDATA\Programs\TrafficScope\Uninstall TrafficScope.exe"
+          Start-Process $un -ArgumentList '/uninstall','/S' -Wait; Start-Sleep 3
+          if (Test-Path $exe) { throw "Uninstall left $exe behind" }
+          Write-Host "Uninstalled cleanly"
+      - name: Portable exe starts
+        shell: pwsh
+        run: |
+          Expand-Archive (Get-ChildItem out/*-Windows-Portable.zip | Select-Object -First 1).FullName -DestinationPath portable
+          $p = Start-Process portable/TrafficScope.exe -PassThru; Start-Sleep 12
+          if ($p.HasExited) { throw "Portable app exited early ($($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+
+  publish:
+    needs: [build, windows-smoke]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: release, path: out }
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: TrafficScope ${{ github.ref_name }}
+          body_path: RELEASE-NOTES.md
+          files: out/*
