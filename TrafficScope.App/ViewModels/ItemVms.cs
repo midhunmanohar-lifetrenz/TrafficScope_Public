@@ -27,12 +27,20 @@ public partial class FlowVm : ObservableObject
     public string Method => Flow.Method;
     public IBrush MethodBg => Palette.MethodBg(Flow.Method);
     public IBrush MethodFg => Palette.MethodFg(Flow.Method);
+    public bool IsGet => Flow.Method == "GET";
+    public bool IsPost => Flow.Method == "POST";
+    public bool IsPut => Flow.Method is "PUT" or "PATCH";
+    public bool IsDelete => Flow.Method == "DELETE";
     public string Host => Flow.Host;
     public string PathText => Flow.IsTunnel ? "(tunnel, not decrypted)" : Flow.Path;
     public string Url => Flow.Url;
     public bool IsError => Flow.StatusCode >= 400 || Flow.Error != null;
     public string Status => Flow.Error != null && Flow.StatusCode == null ? "ERR" : Flow.StatusCode?.ToString() ?? "…";
     public IBrush StatusBrush => Flow.StatusCode == null && Flow.Error == null ? Palette.Pending : IsError ? Palette.Bad : Flow.StatusCode >= 300 ? Palette.Info : Palette.Ok;
+    bool Done => Flow.StatusCode != null || Flow.Error != null;
+    public bool StatusOk => Done && !IsError && Flow.StatusCode < 300;
+    public bool StatusBad => Done && IsError;
+    public bool StatusInfo => Done && !IsError && Flow.StatusCode >= 300;
     public string Time => Flow.Duration is { } d && !Flow.IsTunnel ? (d.TotalMilliseconds >= 1000 ? $"{d.TotalSeconds:0.0} s" : $"{d.TotalMilliseconds:0} ms") : "";
     public string Size => Formatting.Size(Flow.ResponseBody?.Length);
     public string Type => (Flow.ResponseContentType ?? "").Split(';')[0].Replace("application/", "").Replace("text/", "");
@@ -41,7 +49,7 @@ public partial class FlowVm : ObservableObject
 
     public void Refresh()
     {
-        foreach (var p in new[] { nameof(Status), nameof(StatusBrush), nameof(Time), nameof(Size), nameof(Type), nameof(Tag), nameof(HasTag), nameof(IsError), nameof(Method), nameof(MethodBg), nameof(MethodFg), nameof(Host), nameof(PathText), nameof(Url) })
+        foreach (var p in new[] { nameof(Status), nameof(StatusBrush), nameof(StatusOk), nameof(StatusBad), nameof(StatusInfo), nameof(IsGet), nameof(IsPost), nameof(IsPut), nameof(IsDelete), nameof(Time), nameof(Size), nameof(Type), nameof(Tag), nameof(HasTag), nameof(IsError), nameof(Method), nameof(MethodBg), nameof(MethodFg), nameof(Host), nameof(PathText), nameof(Url) })
             OnPropertyChanged(p);
     }
 }
@@ -53,6 +61,7 @@ public partial class JsonNodeVm : ObservableObject
         Name = n.Name; Value = n.Kind is "object" or "array" ? n.Value : n.Value;
         IsContainer = n.Kind is "object" or "array";
         ValueBrush = Brush.Parse(n.Kind switch { "string" => "#2E9E5B", "number" => "#C98A12", "bool" => "#1A73E8", "null" => "#888780", _ => "#888780" });
+        IsString = n.Kind == "string"; IsNumber = n.Kind == "number"; IsBool = n.Kind == "bool";
         _isExpanded = depth < 3;
         foreach (var c in n.Children) Children.Add(new JsonNodeVm(c, depth + 1));
     }
@@ -60,6 +69,9 @@ public partial class JsonNodeVm : ObservableObject
     public string Value { get; }
     public bool IsContainer { get; }
     public IBrush ValueBrush { get; }
+    public bool IsString { get; }
+    public bool IsNumber { get; }
+    public bool IsBool { get; }
     public ObservableCollection<JsonNodeVm> Children { get; } = new();
     [ObservableProperty] bool _isExpanded;
 

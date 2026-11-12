@@ -42,4 +42,31 @@ public partial class MainWindow : Window, IUiServices
     }
 
     public void ShowCompare(Flow a, Flow b) => new CompareWindow(a, b).Show(this);
+
+    public async Task<bool> ConfirmAsync(string title, string message, string confirmText)
+    {
+        var result = false;
+        var dlg = new Window
+        {
+            Title = title, Width = 460, SizeToContent = SizeToContent.Height, CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner, ShowInTaskbar = false,
+        };
+        var ok = new Button { Content = confirmText, Classes = { "primary", "stop" } };
+        var cancel = new Button { Content = "Cancel", Classes = { "tool" }, IsCancel = true };
+        ok.Click += (_, _) => { result = true; dlg.Close(); };
+        cancel.Click += (_, _) => dlg.Close();
+        dlg.Content = new StackPanel
+        {
+            Margin = new Avalonia.Thickness(20), Spacing = 12,
+            Children =
+            {
+                new TextBlock { Text = title, FontSize = 16, FontWeight = Avalonia.Media.FontWeight.SemiBold },
+                new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Classes = { "muted" } },
+                new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { cancel, ok } },
+            },
+        };
+        await dlg.ShowDialog(this);
+        return result;
+    }
 }

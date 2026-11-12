@@ -30,7 +30,10 @@ public interface IUiServices
     Task EditAsync(EditModel model);
     Task<bool> OpenRulesAsync(AppSettings settings, int tab);
     void ShowCompare(Flow a, Flow b);
+    Task<bool> ConfirmAsync(string title, string message, string confirmText);
 }
+
+public enum NoticeKind { Info, Success, Warning, Error }
 
 public partial class MainViewModel : ObservableObject, IDisposable
 {
@@ -88,6 +91,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] string _breakpointBanner = "";
 
     public string RecordText => IsCapturing ? "Stop" : "Record";
+    [ObservableProperty] string _recordPillText = "Record";
     public string PauseText => IsPaused ? "Resume" : "Pause";
     public bool HasSelection => SelectedFlow != null;
     public bool CanCompare => _multi.Count == 2;
@@ -102,6 +106,51 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public bool HasParams => HasForm || HasQuery;
     public bool NoParams => !HasParams;
     public bool ShowSetup => !CertTrusted;
+    public string CertButtonText => CertTrusted ? "Verified" : "Install certificate";
+    public string CertButtonTip => CertTrusted
+        ? "The TrafficScope certificate is installed and trusted. Click to check again."
+        : "Trust the TrafficScope certificate so HTTPS can be read (needed once)";
+
+    // ---------- notification banner ----------
+    [ObservableProperty] string _noticeText = "";
+    [ObservableProperty] NoticeKind _noticeKind;
+    CancellationTokenSource? _noticeCts;
+    public bool HasNotice => NoticeText.Length > 0;
+    public bool NoticeIsError => NoticeKind == NoticeKind.Error;
+    public bool NoticeIsWarning => NoticeKind == NoticeKind.Warning;
+    public bool NoticeIsSuccess => NoticeKind == NoticeKind.Success;
+    public bool NoticeIsInfo => NoticeKind == NoticeKind.Info;
+    public string NoticeGlyph => NoticeKind switch { NoticeKind.Success => "✓", NoticeKind.Info => "i", _ => "!" };
+    partial void OnNoticeTextChanged(string value) => OnPropertyChanged(nameof(HasNotice));
+    partial void OnNoticeKindChanged(NoticeKind value)
+    {
+        foreach (var p in new[] { nameof(NoticeIsError), nameof(NoticeIsWarning), nameof(NoticeIsSuccess), nameof(NoticeIsInfo), nameof(NoticeGlyph) })
+            OnPropertyChanged(p);
+    }
+    partial void OnStatusChanged(string value) => Notify(value, Classify(value));
+
+    public static NoticeKind Classify(string text)
+    {
+        if (text.StartsWith("Could not") || text.StartsWith("Failed") || text.StartsWith("Not started") || text.Contains("not trusted yet"))
+            return NoticeKind.Error;
+        if (text.StartsWith("Select at least")) return NoticeKind.Warning;
+        if (text.EndsWith("…")) return NoticeKind.Info;
+        return NoticeKind.Success;
+    }
+
+    /// <summary>Shows a banner that hides itself; progress messages ("…") stay until the next one, errors stay longer.</summary>
+    public async void Notify(string text, NoticeKind kind)
+    {
+        _noticeCts?.Cancel();
+        _noticeCts = new CancellationTokenSource();
+        var token = _noticeCts.Token;
+        NoticeKind = kind; NoticeText = text;
+        if (string.IsNullOrEmpty(text) || (kind == NoticeKind.Info && text.EndsWith("…"))) return;
+        try { await Task.Delay(kind == NoticeKind.Error ? 10000 : kind == NoticeKind.Warning ? 6000 : 4500, token); NoticeText = ""; }
+        catch (TaskCanceledException) { }
+    }
+
+    [RelayCommand] void DismissNotice() { _noticeCts?.Cancel(); NoticeText = ""; }
     public bool ShowTunnels { get => Settings.ShowTunnels; set { Settings.ShowTunnels = value; SaveSettings(); ApplyFilter(); OnPropertyChanged(); } }
     public bool MaskSecrets { get => Settings.MaskSecrets; set { Settings.MaskSecrets = value; SaveSettings(); OnPropertyChanged(); } }
     public string TreeToggleText => ShowTree ? "Raw" : "Tree";
@@ -178,6 +227,33 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand] void ClearFilters() { FilterText = ""; FilterKind = FlowFilterKind.All; }
 
+    public string StartHintText => CertTrusted
+        ? "No requests yet. Pick apps on the left, press Record, then use your app."
+        : "First press Install certificate (top right) once. Then pick apps on the left, press Record and use your app.";
+
+    [RelayCommand]
+    async Task ResetAll()
+    {
+        if (Ui == null) return;
+        var ok = await Ui.ConfirmAsync("Reset TrafficScope?",
+            "This clears the recorded requests, mocks, breakpoints, the decrypt-only list, slow network, theme and the other settings, " +
+            "and disconnects Postman.\n\nYour favourite apps and the apps you switched on are kept. The certificate stays installed.",
+            "Reset all");
+        if (!ok) return;
+        Clear();
+        FilterText = ""; FilterKind = FlowFilterKind.All;
+        var d = new AppSettings();
+        Settings.Theme = d.Theme; Settings.MaskSecrets = d.MaskSecrets; Settings.ShowTunnels = d.ShowTunnels; Settings.DelayMs = d.DelayMs;
+        Settings.DecryptOnlyHosts = d.DecryptOnlyHosts; Settings.Mocks = d.Mocks; Settings.Breakpoints = d.Breakpoints;
+        Settings.PostmanWorkspaceId = d.PostmanWorkspaceId; Settings.PostmanWorkspaceName = d.PostmanWorkspaceName;
+        Settings.PostmanCollection = d.PostmanCollection; Settings.PostmanUser = d.PostmanUser;
+        try { PostmanSetup.DeleteKey(); } catch { }
+        SaveSettings();
+        ApplyTheme();
+        ApplyFilter();
+        Status = "Everything was reset. Your favourites and selected apps were kept.";
+    }
+
     public MainViewModel()
     {
         Settings = _settingsStore.Load();
@@ -205,8 +281,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public static Func<(bool Leftover, string Detail)> DetectLeftoverProxy { get; set; } = SystemProxy.DetectLeftover;
     public static Func<(bool Ok, string Message)> RestoreProxy { get; set; } = SystemProxy.Disable;
     [ObservableProperty] string _leftoverProxy = "";
-    public bool HasLeftoverProxy => LeftoverProxy.Length > 0;
-    partial void OnLeftoverProxyChanged(string value) => OnPropertyChanged(nameof(HasLeftoverProxy));
+    public bool HasLeftoverProxy => LeftoverProxy.Length > 0 || ProxyStillOn;
+    /// <summary>Stop ran but the system proxy could not be switched off (for example the password prompt was cancelled).</summary>
+    [ObservableProperty] bool _proxyStillOn;
+    public string LeftoverTitle => ProxyStillOn ? "Your system proxy is still switched on"
+        : "Your proxy is still switched on, but nothing is answering on it";
+    public string LeftoverDetail => ProxyStillOn
+        ? "Recording stopped, but the proxy could not be turned off. Your apps keep working while TrafficScope is open; turn it off before you quit."
+        : "A previous session did not close properly, so some apps may have no internet. Proxy: " + LeftoverProxy;
+    public string LeftoverButtonText => ProxyStillOn ? "Turn proxy off" : "Fix now";
+    partial void OnLeftoverProxyChanged(string value) => NotifyLeftover();
+    partial void OnProxyStillOnChanged(bool value) => NotifyLeftover();
+    void NotifyLeftover()
+    {
+        foreach (var p in new[] { nameof(HasLeftoverProxy), nameof(LeftoverTitle), nameof(LeftoverDetail), nameof(LeftoverButtonText) })
+            OnPropertyChanged(p);
+    }
 
     public async Task CheckLeftoverProxyAsync()
     {
@@ -219,6 +309,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     async Task FixLeftoverProxy()
     {
         var (ok, msg) = await Task.Run(RestoreProxy);
+        if (ok) ProxyStillOn = false;
         await CheckLeftoverProxyAsync();
         Status = ok && !HasLeftoverProxy ? "Proxy turned off. Your apps connect directly again." : "Could not turn the proxy off. " + msg;
     }
@@ -234,7 +325,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch { CertTrusted = false; }
     }
 
-    partial void OnCertTrustedChanged(bool value) => OnPropertyChanged(nameof(ShowSetup));
+    partial void OnCertTrustedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowSetup)); OnPropertyChanged(nameof(CertButtonText)); OnPropertyChanged(nameof(CertButtonTip));
+        OnPropertyChanged(nameof(StartHintText));
+    }
     partial void OnIsCapturingChanged(bool value) => OnPropertyChanged(nameof(RecordText));
     partial void OnIsPausedChanged(bool value) { _engine.Paused = value; OnPropertyChanged(nameof(PauseText)); }
     partial void OnShowInstalledChanged(bool value) { RebuildApps(); OnPropertyChanged(nameof(ShowRunningTab)); }
@@ -266,6 +361,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         RecordingText = IsCapturing && _engine.CaptureStartedAt is { } t
             ? (IsPaused ? "Paused " : "Recording ") + (DateTime.Now - t).ToString(@"mm\:ss") : "";
+        RecordPillText = IsCapturing && _engine.CaptureStartedAt is { } t2
+            ? "Stop  ·  " + (IsPaused ? "paused " : "") + (DateTime.Now - t2).ToString(@"mm\:ss") : "Record";
         var visible = _all.Where(f => !f.Flow.IsTunnel).ToList();
         var bytes = visible.Sum(f => (long)(f.Flow.ResponseBody?.Length ?? 0) + (f.Flow.RequestBody?.Length ?? 0));
         var apps = SelectedKeys().Length;
@@ -274,7 +371,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     // ---------- apps ----------
-    async Task RefreshAppsAsync()
+    public async Task RefreshAppsAsync()
     {
         var running = await AppCatalog.GetRunningAsync();
         if (running.Count == _running.Count && running.Select(r => r.Key).SequenceEqual(_running.Select(r => r.Key))) return;
@@ -372,6 +469,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var (pok, pmsg) = await Task.Run(() => SystemProxy.Enable(_engine.Port));
             if (!pok) { _engine.Stop(); Status = "Could not set the system proxy. " + pmsg; return; }
             _engine.BeginCapture(SelectedKeys());
+            ProxyStillOn = false;
             IsPaused = false;
             IsCapturing = true;
             Status = $"Recording since {_engine.CaptureStartedAt:HH:mm:ss}. Only selected apps are recorded."
@@ -384,11 +482,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public async Task StopAsync()
     {
         _engine.EndCapture();
-        await Task.Run(SystemProxy.Disable);
-        _engine.Stop();
+        var (ok, msg) = await Task.Run(RestoreProxy);
+        // Keep the proxy listening as a silent pass-through until TrafficScope quits: some apps
+        // (Adobe AIR, Java, Electron) keep using the proxy they saw at launch and would lose
+        // their connection ("No response from server") if it vanished.
         IsCapturing = false;
         IsPaused = false;
-        Status = "Stopped. System proxy restored.";
+        ProxyStillOn = !ok;
+        Status = ok
+            ? "Stopped. System proxy restored; apps that are still using it keep working while TrafficScope is open."
+            : "Could not turn the system proxy off. " + msg + " Press Turn proxy off and approve the prompt.";
         Tick();
     }
 
@@ -536,6 +639,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _toastCts = new CancellationTokenSource();
         var token = _toastCts.Token;
         Toast = message;
+        Notify(message, NoticeKind.Success);
         try { await Task.Delay(2500, token); Toast = ""; } catch (TaskCanceledException) { }
     }
 
@@ -718,6 +822,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     async Task InstallCertificate()
     {
+        if (CertTrusted)
+        {
+            await CheckCertAsync();
+            if (CertTrusted) { Status = "Certificate verified: installed and trusted on this computer."; return; }
+        }
         _engine.EnsureRootCertificate();
         Status = "Installing certificate (approve the prompts)…";
         var (ok, msg) = await Task.Run(() => CertificateService.Install(_engine.RootCertificate!, FavoritesStore.DataDir));
@@ -729,7 +838,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _appTimer.Stop(); _clock.Stop();
-        if (IsCapturing) SystemProxy.Disable();
+        if (IsCapturing || ProxyStillOn) SystemProxy.Disable();
         _engine.Dispose();
     }
 }

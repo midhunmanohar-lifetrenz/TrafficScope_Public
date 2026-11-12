@@ -113,6 +113,23 @@ public class IntegrationTests : IDisposable
     }
 
     [Fact]
+    public void AfterStopTheProxyStillForwardsButRecordsNothing()
+    {
+        // Apps such as Adobe AIR apps keep using the proxy after Stop; it must keep answering.
+        _e.BeginCapture(new[] { Curl });
+        Run(Via(Url("/before-stop")));
+        WaitFlow(x => x.Path == "/before-stop");
+        _e.EndCapture();
+        var hits = _srv.Hits;
+        var (code, o) = Run(Via(Url("/after-stop")));
+        Assert.Equal(0, code);
+        Assert.Contains("\"path\":\"/after-stop\"", o);
+        Assert.Equal(hits + 1, _srv.Hits);
+        Thread.Sleep(300);
+        lock (_flows) Assert.DoesNotContain(_flows, f => f.Path == "/after-stop");
+    }
+
+    [Fact]
     public void ErrorStatusIsCaptured()
     {
         _e.BeginCapture(new[] { Curl });

@@ -50,6 +50,9 @@ public sealed class FakeUi : IUiServices
     public Task EditAsync(EditModel model) { OnEdit?.Invoke(model); return Task.CompletedTask; }
     public Task<bool> OpenRulesAsync(AppSettings settings, int tab) { RulesOpened++; return Task.FromResult(true); }
     public void ShowCompare(Flow a, Flow b) => Compared = (a, b);
+    public bool ConfirmAnswer = true;
+    public string? ConfirmTitle;
+    public Task<bool> ConfirmAsync(string title, string message, string confirmText) { ConfirmTitle = title; return Task.FromResult(ConfirmAnswer); }
 }
 
 public static class Samples
@@ -441,5 +444,114 @@ public class UiTests
         vm.ClearFiltersCommand.Execute(null);
         Assert.NotEmpty(vm.Flows);
         Assert.False(vm.ShowFilterHint);
+    }
+
+    [Theory]
+    [InlineData("Could not set the system proxy. denied", NoticeKind.Error)]
+    [InlineData("Not started: the TrafficScope certificate is not trusted yet", NoticeKind.Error)]
+    [InlineData("Select at least one app on the left first.", NoticeKind.Warning)]
+    [InlineData("Starting proxy…", NoticeKind.Info)]
+    [InlineData("Stopped. System proxy restored.", NoticeKind.Success)]
+    public void NoticesAreClassified(string text, NoticeKind kind) => Assert.Equal(kind, MainViewModel.Classify(text));
+
+    [AvaloniaFact]
+    public void StatusShowsAsDismissableBanner()
+    {
+        var (w, vm, _) = Open();
+        Assert.False(w.FindControl<Border>("Notice")!.IsVisible);
+        vm.Status = "Could not set the system proxy. The operation was cancelled.";
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(w.FindControl<Border>("Notice")!.IsVisible);
+        Assert.True(vm.NoticeIsError);
+        vm.Settings.Theme = "Light"; vm.ApplyTheme();
+        w.InvalidateVisual(); Dispatcher.UIThread.RunJobs();
+        Shot(w, "21-notice-error-light");
+        vm.DismissNoticeCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(w.FindControl<Border>("Notice")!.IsVisible);
+        w.Close();
+    }
+
+    [AvaloniaFact]
+    public void ToolbarHasIconButtonsAndCertificateState()
+    {
+        var (w, vm, _) = Open();
+        foreach (var n in new[] { "MocksButton", "BreakpointsButton", "SettingsButton", "ResetButton", "CertButton" })
+            Assert.True(w.FindControl<Button>(n)!.IsVisible, n);
+        vm.CertTrusted = false;
+        Assert.Equal("Install certificate", vm.CertButtonText);
+        Assert.Contains("Install certificate", vm.StartHintText);
+        vm.CertTrusted = true;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Verified", vm.CertButtonText);
+        Assert.Contains("verified", w.FindControl<Button>("CertButton")!.Classes);
+        vm.Status = "Certificate verified: installed and trusted on this computer.";
+        Shot(w, "22-toolbar-verified-light");
+        vm.Settings.Theme = "Dark"; vm.ApplyTheme();
+        Shot(w, "23-toolbar-verified-dark");
+        vm.Settings.Theme = "Light"; vm.ApplyTheme();
+        w.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task ResetAllKeepsFavouritesAndSelection()
+    {
+        PostmanStore.Reset(); PostmanStore.Key = "PMAK-test";
+        var (_, vm, ui) = Open(false);
+        await vm.RefreshAppsAsync();
+        var app = vm.Favorites.Concat(vm.Others).First();
+        app.IsSelected = true;
+        if (!vm.Favorites.Contains(app)) app.ToggleFavoriteCommand.Execute(null);
+        var favCount = vm.Favorites.Count;
+        vm.Settings.Mocks.Add(new MockRule { UrlContains = "/x" });
+        vm.Settings.Breakpoints.Add(new BreakpointRule { UrlContains = "/y" });
+        vm.Settings.DecryptOnlyHosts.Add("example.com");
+        vm.Settings.DelayMs = 500; vm.Settings.Theme = "Dark"; vm.Settings.PostmanWorkspaceId = "ws1";
+        vm.FilterText = "orders";
+        vm.SaveSettings();
+
+        ui.ConfirmAnswer = false;
+        await vm.ResetAllCommand.ExecuteAsync(null);
+        Assert.Single(vm.Settings.Mocks);
+
+        ui.ConfirmAnswer = true;
+        await vm.ResetAllCommand.ExecuteAsync(null);
+        Assert.Equal("Reset TrafficScope?", ui.ConfirmTitle);
+        Assert.Empty(vm.Flows);
+        Assert.Empty(vm.Settings.Mocks); Assert.Empty(vm.Settings.Breakpoints); Assert.Empty(vm.Settings.DecryptOnlyHosts);
+        Assert.Equal(0, vm.Settings.DelayMs); Assert.Equal("System", vm.Settings.Theme); Assert.Equal("", vm.Settings.PostmanWorkspaceId);
+        Assert.Equal("", vm.FilterText);
+        Assert.Null(PostmanStore.Key);
+        var saved = new SettingsStore().Load();
+        Assert.Empty(saved.Mocks); Assert.Empty(saved.DecryptOnlyHosts);
+        Assert.True(app.IsSelected);
+        Assert.Equal(favCount, vm.Favorites.Count);
+        Assert.Contains("kept", vm.Status);
+    }
+
+    [AvaloniaFact]
+    public async Task FailedStopKeepsShowingTurnProxyOff()
+    {
+        var (w, vm, _) = Open();
+        try
+        {
+            MainViewModel.RestoreProxy = () => (false, "The administrator prompt was cancelled.");
+            await vm.StopAsync();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.ProxyStillOn);
+            Assert.True(vm.HasLeftoverProxy);
+            Assert.Equal("Turn proxy off", vm.LeftoverButtonText);
+            Assert.StartsWith("Could not turn the system proxy off", vm.Status);
+            Assert.True(vm.NoticeIsError);
+            Shot(w, "24-proxy-still-on");
+
+            MainViewModel.RestoreProxy = () => (true, "Done.");
+            await vm.FixLeftoverProxyCommand.ExecuteAsync(null);
+            Assert.False(vm.ProxyStillOn);
+            Assert.False(vm.HasLeftoverProxy);
+            Assert.Contains("connect directly", vm.Status);
+            w.Close();
+        }
+        finally { MainViewModel.RestoreProxy = SystemProxy.Disable; }
     }
 }

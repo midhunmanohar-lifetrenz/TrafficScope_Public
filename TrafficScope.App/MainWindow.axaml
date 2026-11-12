@@ -14,7 +14,8 @@
       </Grid>
     </DataTemplate>
     <DataTemplate x:Key="AppRow" x:DataType="vm:AppItemVm">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="2,2" Background="Transparent">
+      <Border Classes="approw" Classes.on="{Binding IsSelected}" Margin="2,1">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Background="Transparent">
         <Panel Grid.Column="0" Width="24" Height="24" Margin="4,0,8,0" VerticalAlignment="Center">
           <Border CornerRadius="6" Background="{Binding AvatarBrush}" IsVisible="{Binding !HasIcon}">
             <TextBlock Text="{Binding Initial}" Foreground="White" FontSize="11" FontWeight="Medium" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -29,45 +30,42 @@
         <ToggleSwitch Grid.Column="3" Classes="small" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" ToolTip.Tip="Record this app" />
         <Button Grid.Column="4" Classes="icon" Content="{Binding StarGlyph}" Command="{Binding ToggleFavoriteCommand}" ToolTip.Tip="Favourite" />
       </Grid>
+      </Border>
+    
     </DataTemplate>
   </Window.Resources>
 
+  <Panel>
   <DockPanel>
-    <!-- toolbar -->
-    <Border DockPanel.Dock="Top" Padding="12,8" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource TsBorder}">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
-        <Image Grid.Column="0" Source="avares://TrafficScope/Resources/AppIcon.png" Width="26" Height="26" Margin="0,0,6,0" />
-        <Button Grid.Column="1" Classes="primary" Classes.stop="{Binding IsCapturing}" Command="{Binding ToggleCaptureCommand}" MinWidth="92" HorizontalContentAlignment="Center"
-                ToolTip.Tip="Start or stop recording the selected apps">
-          <TextBlock Text="{Binding RecordText}" />
-        </Button>
-        <Border Grid.Column="2" Background="{DynamicResource TsRecBg}" CornerRadius="999" Padding="10,3" VerticalAlignment="Center"
-                IsVisible="{Binding RecordingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+    <!-- top app bar -->
+    <Border DockPanel.Dock="Top" Padding="16,10,16,8">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+        <Image Grid.Column="0" Source="avares://TrafficScope/Resources/AppIcon.png" Width="30" Height="30" />
+        <TextBlock Grid.Column="1" Text="TrafficScope" FontSize="18" VerticalAlignment="Center" Margin="2,0,20,0" />
+        <TextBox Grid.Column="2" x:Name="SearchBox" Classes="search big" Text="{Binding FilterText}" MaxWidth="720" HorizontalAlignment="Stretch"
+                 Watermark="Search URL, app, status or body" VerticalAlignment="Center" />
+        <Button Grid.Column="3" x:Name="CertButton" Classes="cert" Classes.verified="{Binding CertTrusted}" Command="{Binding InstallCertificateCommand}"
+                ToolTip.Tip="{Binding CertButtonTip}" VerticalAlignment="Center" Margin="10,0,0,0">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <Ellipse Width="7" Height="7" Fill="{DynamicResource TsDanger}" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding RecordingText}" Foreground="{DynamicResource TsRecFg}" FontSize="12" />
+            <Panel>
+              <Path Data="{StaticResource ShieldIcon}" IsVisible="{Binding !CertTrusted}" />
+              <Path Data="{StaticResource ShieldCheckIcon}" IsVisible="{Binding CertTrusted}" />
+            </Panel>
+            <TextBlock Text="{Binding CertButtonText}" VerticalAlignment="Center" />
           </StackPanel>
-        </Border>
-        <Rectangle Grid.Column="3" Width="1" Height="20" Fill="{DynamicResource TsBorder}" Margin="6,0" />
-        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2">
-          <Button Classes="tool" Content="{Binding PauseText}" Command="{Binding TogglePauseCommand}" ToolTip.Tip="Keep the proxy running but stop recording for a moment" />
-          <Button Classes="tool" Content="Clear" Command="{Binding ClearCommand}" />
-          <Button Classes="tool" Content="Replay" Command="{Binding ReplayCommand}" ToolTip.Tip="Send the selected request again" />
-          <Button Classes="tool" Content="Edit and resend" Command="{Binding EditAndResendCommand}" />
-          <Button Classes="tool" Content="Compare" Command="{Binding CompareCommand}" ToolTip.Tip="Select two requests with Ctrl/Cmd+click, then compare" />
-          <Button Classes="tool" Content="Save" Command="{Binding SaveHarCommand}" ToolTip.Tip="Save all requests as a .har file" />
+        </Button>
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+          <Button x:Name="MocksButton" Classes="bar" Command="{Binding OpenMocksCommand}" ToolTip.Tip="Mock responses"><Path Data="{StaticResource MockIcon}" /></Button>
+          <Button x:Name="BreakpointsButton" Classes="bar" Command="{Binding OpenBreakpointsCommand}" ToolTip.Tip="Breakpoints"><Path Data="{StaticResource BreakIcon}" /></Button>
+          <Button x:Name="SettingsButton" Classes="bar" Command="{Binding OpenSettingsCommand}" ToolTip.Tip="Settings: decrypt-only hosts, slow network, theme, Postman"><Path Data="{StaticResource SettingsIcon}" /></Button>
+          <Button x:Name="ResetButton" Classes="bar" Command="{Binding ResetAllCommand}" ToolTip.Tip="Reset all (keeps favourites and selected apps)"><Path Data="{StaticResource ResetIcon}" /></Button>
         </StackPanel>
-        <TextBox Grid.Column="6" Text="{Binding FilterText}" Watermark="Search URL, app, status or body" Width="270" />
-        <Button Grid.Column="7" Classes="tool" Content="Tools ▾">
-          <Button.Flyout>
-            <MenuFlyout Placement="BottomEdgeAlignedRight">
-              <MenuItem Header="Mock responses…" Command="{Binding OpenMocksCommand}" />
-              <MenuItem Header="Breakpoints…" Command="{Binding OpenBreakpointsCommand}" />
-              <MenuItem Header="Settings (hosts, slow network, theme)…" Command="{Binding OpenSettingsCommand}" />
-              <Separator />
-              <MenuItem Header="Install certificate" Command="{Binding InstallCertificateCommand}" />
-            </MenuFlyout>
-          </Button.Flyout>
+        <Button Grid.Column="5" x:Name="RecordButton" Classes="primary" Classes.stop="{Binding IsCapturing}" Command="{Binding ToggleCaptureCommand}"
+                MinWidth="110" HorizontalContentAlignment="Center" VerticalAlignment="Center" ToolTip.Tip="Start or stop recording the selected apps">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Ellipse Width="8" Height="8" Fill="{Binding $parent[Button].Foreground}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding RecordPillText}" VerticalAlignment="Center" />
+          </StackPanel>
         </Button>
       </Grid>
     </Border>
@@ -76,24 +74,10 @@
     <Border DockPanel.Dock="Top" Background="{DynamicResource TsRecBg}" Padding="14,8" IsVisible="{Binding HasLeftoverProxy}">
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel VerticalAlignment="Center">
-          <TextBlock Text="Your proxy is still switched on, but nothing is answering on it" FontWeight="Medium" Foreground="{DynamicResource TsRecFg}" />
-          <TextBlock Foreground="{DynamicResource TsRecFg}" FontSize="12" TextWrapping="Wrap">
-            <Run Text="A previous session did not close properly, so some apps may have no internet. Proxy:" />
-            <Run Text="{Binding LeftoverProxy}" />
-          </TextBlock>
+          <TextBlock Text="{Binding LeftoverTitle}" FontWeight="Medium" Foreground="{DynamicResource TsRecFg}" />
+          <TextBlock Text="{Binding LeftoverDetail}" Foreground="{DynamicResource TsRecFg}" FontSize="12" TextWrapping="Wrap" />
         </StackPanel>
-        <Button Grid.Column="1" Classes="primary stop" Content="Fix now" Command="{Binding FixLeftoverProxyCommand}" />
-      </Grid>
-    </Border>
-
-    <!-- first-run setup -->
-    <Border DockPanel.Dock="Top" Background="{DynamicResource TsBannerBg}" Padding="14,8" IsVisible="{Binding ShowSetup}">
-      <Grid ColumnDefinitions="*,Auto">
-        <StackPanel VerticalAlignment="Center">
-          <TextBlock Text="Set up once: trust the TrafficScope certificate" FontWeight="Medium" Foreground="{DynamicResource TsBannerFg}" />
-          <TextBlock Text="Without it, apps show certificate errors when you record. Then pick apps on the left and press Record." Foreground="{DynamicResource TsBannerFg}" FontSize="12" />
-        </StackPanel>
-        <Button Grid.Column="1" Classes="primary" Content="Install certificate" Command="{Binding InstallCertificateCommand}" />
+        <Button Grid.Column="1" x:Name="FixProxyButton" Classes="primary stop" Content="{Binding LeftoverButtonText}" Command="{Binding FixLeftoverProxyCommand}" />
       </Grid>
     </Border>
 
@@ -104,7 +88,7 @@
     </Border>
 
     <!-- footer -->
-    <Border DockPanel.Dock="Bottom" Padding="12,5" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource TsBorder}" Background="{DynamicResource TsSidebar}">
+    <Border DockPanel.Dock="Bottom" Padding="18,5" Background="{DynamicResource TsSheet}">
       <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="16">
         <TextBlock Grid.Column="0" Text="{Binding FooterText}" Classes="caption" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="{Binding RulesSummary}" Classes="caption" Foreground="{DynamicResource TsAccent}" VerticalAlignment="Center" IsVisible="{Binding HasRules}" />
@@ -116,16 +100,15 @@
       <!-- sidebar -->
       <DockPanel Grid.Column="0" Background="{DynamicResource TsSidebar}">
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="10,10,10,0">
-          <Border Background="{DynamicResource TsChip}" CornerRadius="8" Padding="3">
+          <Border Background="{DynamicResource TsChip}" CornerRadius="999" Padding="3">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="3">
               <Button Grid.Column="0" Classes="seg" Classes.on="{Binding ShowRunningTab}" Content="Running" Command="{Binding ShowRunningCommand}" />
               <Button Grid.Column="1" Classes="seg" Classes.on="{Binding ShowInstalled}" Content="Installed" Command="{Binding ShowInstalledAppsCommand}" />
             </Grid>
           </Border>
-          <TextBox Text="{Binding AppSearch}" Watermark="Search apps" />
+          <TextBox Text="{Binding AppSearch}" Classes="search" Watermark="Search apps" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="10,6,10,10" Spacing="4">
-          <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontSize="12" />
           <TextBlock Text="{Binding SelectedSummary}" Classes="caption" />
         </StackPanel>
         <ScrollViewer Margin="4,0">
@@ -138,11 +121,11 @@
           </StackPanel>
         </ScrollViewer>
       </DockPanel>
-      <Rectangle Grid.Column="1" Fill="{DynamicResource TsBorder}" />
+      <Rectangle Grid.Column="1" Fill="Transparent" />
 
       <!-- traffic + inspector -->
       <Grid Grid.Column="2" RowDefinitions="Auto,*,6,360">
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="10,8,10,6">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" Margin="10,4,14,8">
           <StackPanel Orientation="Horizontal" Spacing="4">
             <Button Classes="chip" Classes.on="{Binding IsAllFilter}" Content="{Binding AllChip}" Command="{Binding SetFilterCommand}" CommandParameter="All" />
             <Button Classes="chip" Classes.on="{Binding IsErrorsFilter}" Content="{Binding ErrorsChip}" Command="{Binding SetFilterCommand}" CommandParameter="Errors" />
@@ -150,8 +133,15 @@
             <Button Classes="chip" Classes.on="{Binding IsImagesFilter}" Content="Images" Command="{Binding SetFilterCommand}" CommandParameter="Images" />
             <Button Classes="chip" Classes.on="{Binding IsSlowFilter}" Content="Slow &gt; 1 s" Command="{Binding SetFilterCommand}" CommandParameter="Slow" />
           </StackPanel>
-          <TextBlock Grid.Column="1" Text="{Binding Toast}" Foreground="{DynamicResource TsAccent}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-          <CheckBox Grid.Column="2" IsChecked="{Binding ShowTunnels}" Content="{Binding TunnelText}" FontSize="12"
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <Button Classes="tool" Content="{Binding PauseText}" Command="{Binding TogglePauseCommand}" ToolTip.Tip="Keep the proxy running but stop recording for a moment" />
+            <Button Classes="tool" Content="Clear" Command="{Binding ClearCommand}" />
+            <Button Classes="tool" Content="Replay" Command="{Binding ReplayCommand}" ToolTip.Tip="Send the selected request again" />
+            <Button Classes="tool" Content="Edit and resend" Command="{Binding EditAndResendCommand}" />
+            <Button Classes="tool" Content="Compare" Command="{Binding CompareCommand}" ToolTip.Tip="Select two requests with Ctrl/Cmd+click, then compare" />
+            <Button Classes="tool" Content="Save" Command="{Binding SaveHarCommand}" ToolTip.Tip="Save all requests as a .har file" />
+          </StackPanel>
+          <CheckBox Grid.Column="3" IsChecked="{Binding ShowTunnels}" Content="{Binding TunnelText}" FontSize="12"
                     ToolTip.Tip="Connections from your apps to hosts outside your decrypt-only list" />
         </Grid>
 
@@ -177,8 +167,9 @@
             <DataGridTemplateColumn Header="Method" Width="88">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="vm:FlowVm">
-                  <Border Background="{Binding MethodBg}" CornerRadius="5" Padding="6,1" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0">
-                    <TextBlock Text="{Binding Method}" Foreground="{Binding MethodFg}" FontSize="11" FontWeight="Medium" />
+                  <Border Classes="method" Classes.get="{Binding IsGet}" Classes.post="{Binding IsPost}" Classes.put="{Binding IsPut}" Classes.del="{Binding IsDelete}"
+                          CornerRadius="999" Padding="8,1" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <TextBlock Text="{Binding Method}" FontSize="11" FontWeight="Medium" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -186,9 +177,10 @@
             <DataGridTemplateColumn Header="Status" Width="82">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="vm:FlowVm">
-                  <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0">
-                    <Ellipse Width="8" Height="8" Fill="{Binding StatusBrush}" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding Status}" Foreground="{Binding StatusBrush}" />
+                  <StackPanel Classes="status" Classes.ok="{Binding StatusOk}" Classes.bad="{Binding StatusBad}" Classes.info="{Binding StatusInfo}"
+                              Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Status}" />
                   </StackPanel>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -218,14 +210,14 @@
             <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="72" />
           </DataGrid.Columns>
         </DataGrid>
-        <TextBlock Grid.Row="1" Text="No requests yet. Pick apps on the left, press Record, then use your app." Classes="muted"
+        <TextBlock Grid.Row="1" Text="{Binding StartHintText}" Classes="muted"
                    HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowStartHint}" />
         <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding ShowFilterHint}">
           <TextBlock Text="No requests match the current filter or search." Classes="muted" HorizontalAlignment="Center" />
           <Button Classes="tool" Content="Clear filter" Command="{Binding ClearFiltersCommand}" HorizontalAlignment="Center" />
         </StackPanel>
         <Border x:Name="TunnelHint" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="620" Padding="20,16"
-                CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource TsBorder}" Background="{DynamicResource TsPane}"
+                CornerRadius="20" BorderThickness="0" Background="{DynamicResource TsSheet}"
                 IsVisible="{Binding ShowTunnelHint}">
           <StackPanel Spacing="8">
             <TextBlock Text="{Binding TunnelHintTitle}" FontWeight="SemiBold" FontSize="15" />
@@ -239,11 +231,13 @@
           </StackPanel>
         </Border>
 
-        <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="{DynamicResource TsBorder}" Height="1" VerticalAlignment="Center" />
+        <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="Transparent" Height="6" VerticalAlignment="Stretch" />
 
         <!-- inspector -->
-        <Grid Grid.Row="3" Margin="10,0,10,8">
-          <TabControl x:Name="Inspector" Padding="0,6,0,0">
+        <Border Grid.Row="3" Classes="sheet" Margin="0,0,8,0" Padding="12,8,12,8">
+        <Grid>
+          <Border Width="36" Height="4" CornerRadius="2" Background="{DynamicResource TsBorder}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,-4,0,0" />
+          <TabControl x:Name="Inspector" Classes="sheet" Padding="0,8,0,0">
             <TabItem Header="Body">
               <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,*">
                 <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
@@ -342,19 +336,37 @@
               </Grid>
             </TabItem>
           </TabControl>
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Spacing="2" Margin="0,2,0,0">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Spacing="2" Margin="0,0,0,0">
             <Button Classes="tool" Content="{Binding TreeToggleText}" Command="{Binding ToggleTreeCommand}" ToolTip.Tip="Switch JSON between tree and raw text" FontSize="12" />
             <Button Classes="tool" Content="Expand all" Command="{Binding ExpandAllCommand}" FontSize="12" />
             <Button Classes="tool" Content="Collapse all" Command="{Binding CollapseAllCommand}" FontSize="12" />
             <Rectangle Width="1" Height="18" Fill="{DynamicResource TsBorder}" Margin="4,0" />
             <Button Classes="tool" Content="Copy cURL" Command="{Binding CopyCurlCommand}" FontSize="12" />
-            <Button Classes="tool" Content="Send to Postman" Command="{Binding SendToPostmanCommand}" FontSize="12" Foreground="{DynamicResource TsAccent}"
-                    ToolTip.Tip="Save this request to your Postman workspace (Tools > Settings > Postman)" />
+            <Button Classes="primary" Content="Send to Postman" Command="{Binding SendToPostmanCommand}" FontSize="12" Padding="14,5" Margin="4,0,0,0"
+                    ToolTip.Tip="Save this request to your Postman workspace (Settings > Postman)" />
           </StackPanel>
         </Grid>
+        </Border>
       </Grid>
     </Grid>
   </DockPanel>
+
+  <!-- notification banner: floats top-right, hides itself -->
+  <Border x:Name="Notice" Classes="notice" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,40"
+          MinWidth="300" MaxWidth="440" IsVisible="{Binding HasNotice}" ClipToBounds="True">
+    <Grid ColumnDefinitions="4,Auto,*,Auto">
+      <Border Grid.Column="0" Classes="noticeBar" Classes.info="{Binding NoticeIsInfo}" Classes.warning="{Binding NoticeIsWarning}"
+              Classes.error="{Binding NoticeIsError}" CornerRadius="10,0,0,10" />
+      <Border Grid.Column="1" Classes="noticeBar" Classes.info="{Binding NoticeIsInfo}" Classes.warning="{Binding NoticeIsWarning}"
+              Classes.error="{Binding NoticeIsError}" Width="20" Height="20" CornerRadius="10" Margin="12,12,10,12" VerticalAlignment="Top">
+        <TextBlock Text="{Binding NoticeGlyph}" Foreground="{DynamicResource TsNoticeGlyph}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <TextBlock Grid.Column="2" Text="{Binding NoticeText}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,12" FontSize="13" />
+      <Button Grid.Column="3" Classes="icon" Content="✕" Command="{Binding DismissNoticeCommand}" ToolTip.Tip="Dismiss"
+              VerticalAlignment="Top" Margin="6,8,8,0" />
+    </Grid>
+  </Border>
+  </Panel>
 
   <Window.Styles>
     <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsChipOn}" /><Setter Property="Opacity" Value="1" /></Style>
@@ -370,7 +382,7 @@
       <StackPanel Orientation="Horizontal" Spacing="4">
         <SelectableTextBlock Text="{Binding Name}" Foreground="{DynamicResource TsKey}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
         <TextBlock Text=":" Classes="muted" FontSize="12" />
-        <SelectableTextBlock Text="{Binding Value}" Foreground="{Binding ValueBrush}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
+        <SelectableTextBlock Text="{Binding Value}" Classes="jv" Classes.str="{Binding IsString}" Classes.num="{Binding IsNumber}" Classes.bool="{Binding IsBool}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
       </StackPanel>
     </TreeDataTemplate>
   </Window.DataTemplates>

@@ -2,56 +2,132 @@
              x:Class="TrafficScope.App" RequestedThemeVariant="Default">
   <Application.Resources>
     <ResourceDictionary>
-      <Color x:Key="SystemAccentColor">#6D4AFF</Color>
-      <Color x:Key="SystemAccentColorDark1">#5B3BE0</Color>
-      <Color x:Key="SystemAccentColorDark2">#4A2FC2</Color>
-      <Color x:Key="SystemAccentColorLight1">#8B6CFF</Color>
-      <Color x:Key="SystemAccentColorLight2">#A792FF</Color>
-      <SolidColorBrush x:Key="TsAccent" Color="#6D4AFF" />
-      <SolidColorBrush x:Key="TsDanger" Color="#D93A3A" />
       <StreamGeometry x:Key="CopyIcon">M9 9H19V19H9Z M5 15V5H15</StreamGeometry>
+      <StreamGeometry x:Key="MockIcon">M8,4 C5.5,4 6,8 6,10 C6,11.2 5,12 4,12 C5,12 6,12.8 6,14 C6,16 5.5,20 8,20 M16,4 C18.5,4 18,8 18,10 C18,11.2 19,12 20,12 C19,12 18,12.8 18,14 C18,16 18.5,20 16,20</StreamGeometry>
+      <StreamGeometry x:Key="BreakIcon">M8.5,3 H15.5 L21,8.5 V15.5 L15.5,21 H8.5 L3,15.5 V8.5 Z M12,7.5 V12.5 M12,16 V16.4</StreamGeometry>
+      <StreamGeometry x:Key="SettingsIcon">M3,6 H21 M3,12 H21 M3,18 H21 M9,4 A2,2 0 1 1 9,8 A2,2 0 1 1 9,4 M15,10 A2,2 0 1 1 15,14 A2,2 0 1 1 15,10 M7,16 A2,2 0 1 1 7,20 A2,2 0 1 1 7,16</StreamGeometry>
+      <StreamGeometry x:Key="ResetIcon">M4.5,12 A7.5,7.5 0 1 0 7,6.4 M7,2.5 V6.6 H11</StreamGeometry>
+      <StreamGeometry x:Key="ShieldIcon">M12,2.5 L19.5,5.5 V11 C19.5,15.8 16.3,19.6 12,21.5 C7.7,19.6 4.5,15.8 4.5,11 V5.5 Z</StreamGeometry>
+      <StreamGeometry x:Key="ShieldCheckIcon">M12,2.5 L19.5,5.5 V11 C19.5,15.8 16.3,19.6 12,21.5 C7.7,19.6 4.5,15.8 4.5,11 V5.5 Z M8.5,12 L11,14.5 L15.8,9.5</StreamGeometry>
+      <StreamGeometry x:Key="SearchIcon">M10.5,4 A6.5,6.5 0 1 1 10.5,17 A6.5,6.5 0 1 1 10.5,4 M15.3,15.3 L20,20</StreamGeometry>
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
+          <Color x:Key="SystemAccentColor">#7B3FA0</Color>
+          <Color x:Key="SystemAccentColorDark1">#6A3290</Color>
+          <Color x:Key="SystemAccentColorDark2">#592880</Color>
+          <Color x:Key="SystemAccentColorLight1">#9459B8</Color>
+          <Color x:Key="SystemAccentColorLight2">#AD78CC</Color>
+          <SolidColorBrush x:Key="TsAccent" Color="#7B3FA0" />
+          <SolidColorBrush x:Key="TsAccentHover" Color="#6A3290" />
+          <SolidColorBrush x:Key="TsOnAccent" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="TsDanger" Color="#D6455D" />
+          <SolidColorBrush x:Key="TsDangerHover" Color="#BE3550" />
+          <SolidColorBrush x:Key="TsOnDanger" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="TsSuccess" Color="#2F7A4F" />
+          <SolidColorBrush x:Key="TsWarning" Color="#D9A21B" />
+          <SolidColorBrush x:Key="TsNoticeGlyph" Color="#FFFFFF" />
           <SolidColorBrush x:Key="TsWindow" Color="#FFFFFF" />
-          <SolidColorBrush x:Key="TsSidebar" Color="#F7F6FB" />
-          <SolidColorBrush x:Key="TsPane" Color="#F6F6F8" />
-          <SolidColorBrush x:Key="TsBorder" Color="#1A000000" />
-          <SolidColorBrush x:Key="TsMuted" Color="#7C7C86" />
-          <SolidColorBrush x:Key="TsText" Color="#1D1D22" />
-          <SolidColorBrush x:Key="TsChip" Color="#EEEDF4" />
-          <SolidColorBrush x:Key="TsChipOn" Color="#E5DEFF" />
-          <SolidColorBrush x:Key="TsChipOnText" Color="#4A2FC2" />
-          <SolidColorBrush x:Key="TsHover" Color="#0D000000" />
-          <SolidColorBrush x:Key="TsBannerBg" Color="#FFF3DC" />
-          <SolidColorBrush x:Key="TsBannerFg" Color="#7A4E00" />
-          <SolidColorBrush x:Key="TsBreakBg" Color="#E8F0FE" />
-          <SolidColorBrush x:Key="TsBreakFg" Color="#174EA6" />
-          <SolidColorBrush x:Key="TsRecBg" Color="#FDE7E7" />
-          <SolidColorBrush x:Key="TsRecFg" Color="#B42323" />
-          <SolidColorBrush x:Key="TsKey" Color="#5B3BE0" />
-          <SolidColorBrush x:Key="TsDiffAdd" Color="#DDF4E4" />
-          <SolidColorBrush x:Key="TsDiffDel" Color="#FBE2E2" />
+          <SolidColorBrush x:Key="TsSidebar" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="TsPane" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="TsSheet" Color="#F1ECF4" />
+          <SolidColorBrush x:Key="TsField" Color="#F1ECF4" />
+          <SolidColorBrush x:Key="TsBorder" Color="#1F2A2330" />
+          <SolidColorBrush x:Key="TsMuted" Color="#6B6173" />
+          <SolidColorBrush x:Key="TsText" Color="#2A2330" />
+          <SolidColorBrush x:Key="TsChip" Color="#F1ECF4" />
+          <SolidColorBrush x:Key="TsChipOn" Color="#E9D8F4" />
+          <SolidColorBrush x:Key="TsChipOnText" Color="#4A2167" />
+          <SolidColorBrush x:Key="TsHover" Color="#0F2A2330" />
+          <SolidColorBrush x:Key="TsRowSelected" Color="#F6F0FA" />
+          <SolidColorBrush x:Key="TsBannerBg" Color="#FBEFC9" />
+          <SolidColorBrush x:Key="TsBannerFg" Color="#7A5300" />
+          <SolidColorBrush x:Key="TsBreakBg" Color="#FBEFC9" />
+          <SolidColorBrush x:Key="TsBreakFg" Color="#7A5300" />
+          <SolidColorBrush x:Key="TsRecBg" Color="#FBE0E3" />
+          <SolidColorBrush x:Key="TsRecFg" Color="#8E1F33" />
+          <SolidColorBrush x:Key="TsKey" Color="#7B3FA0" />
+          <SolidColorBrush x:Key="TsDiffAdd" Color="#DFF0E5" />
+          <SolidColorBrush x:Key="TsDiffDel" Color="#FBE0E3" />
+          <SolidColorBrush x:Key="TsNoticeBg" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="TsVerifiedBg" Color="#E3F1E7" />
+          <SolidColorBrush x:Key="TsVerifiedFg" Color="#225C38" />
+          <SolidColorBrush x:Key="TsGetBg" Color="#E3F1E7" />
+          <SolidColorBrush x:Key="TsGetFg" Color="#225C38" />
+          <SolidColorBrush x:Key="TsPostBg" Color="#E2CBF2" />
+          <SolidColorBrush x:Key="TsPostFg" Color="#4A2167" />
+          <SolidColorBrush x:Key="TsPutBg" Color="#FBEFC9" />
+          <SolidColorBrush x:Key="TsPutFg" Color="#7A5300" />
+          <SolidColorBrush x:Key="TsDelBg" Color="#FBE0E3" />
+          <SolidColorBrush x:Key="TsDelFg" Color="#8E1F33" />
+          <SolidColorBrush x:Key="TsOtherBg" Color="#EFEAF2" />
+          <SolidColorBrush x:Key="TsOtherFg" Color="#5C5263" />
+          <SolidColorBrush x:Key="TsOk" Color="#2F7A4F" />
+          <SolidColorBrush x:Key="TsBad" Color="#C2334A" />
+          <SolidColorBrush x:Key="TsInfo" Color="#2C6BB3" />
+          <SolidColorBrush x:Key="TsPending" Color="#8A8290" />
+          <SolidColorBrush x:Key="TsJsonStr" Color="#2F7A4F" />
+          <SolidColorBrush x:Key="TsJsonNum" Color="#9A6A00" />
+          <SolidColorBrush x:Key="TsJsonBool" Color="#7B3FA0" />
+          <SolidColorBrush x:Key="TsJsonNull" Color="#8A8290" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
-          <SolidColorBrush x:Key="TsWindow" Color="#1C1C21" />
-          <SolidColorBrush x:Key="TsSidebar" Color="#222228" />
-          <SolidColorBrush x:Key="TsPane" Color="#26262D" />
+          <Color x:Key="SystemAccentColor">#C08BE8</Color>
+          <Color x:Key="SystemAccentColorDark1">#A874D6</Color>
+          <Color x:Key="SystemAccentColorDark2">#905EC2</Color>
+          <Color x:Key="SystemAccentColorLight1">#CFA3F0</Color>
+          <Color x:Key="SystemAccentColorLight2">#DDBCF5</Color>
+          <SolidColorBrush x:Key="TsAccent" Color="#C08BE8" />
+          <SolidColorBrush x:Key="TsAccentHover" Color="#CFA3F0" />
+          <SolidColorBrush x:Key="TsOnAccent" Color="#260A3B" />
+          <SolidColorBrush x:Key="TsDanger" Color="#F06F84" />
+          <SolidColorBrush x:Key="TsDangerHover" Color="#F48A9B" />
+          <SolidColorBrush x:Key="TsOnDanger" Color="#2E0710" />
+          <SolidColorBrush x:Key="TsSuccess" Color="#6FCF97" />
+          <SolidColorBrush x:Key="TsWarning" Color="#F5D684" />
+          <SolidColorBrush x:Key="TsNoticeGlyph" Color="#1B171F" />
+          <SolidColorBrush x:Key="TsWindow" Color="#1B171F" />
+          <SolidColorBrush x:Key="TsSidebar" Color="#1B171F" />
+          <SolidColorBrush x:Key="TsPane" Color="#2B2532" />
+          <SolidColorBrush x:Key="TsSheet" Color="#221D27" />
+          <SolidColorBrush x:Key="TsField" Color="#29232F" />
           <SolidColorBrush x:Key="TsBorder" Color="#24FFFFFF" />
-          <SolidColorBrush x:Key="TsMuted" Color="#9A9AA6" />
-          <SolidColorBrush x:Key="TsText" Color="#ECECF1" />
-          <SolidColorBrush x:Key="TsChip" Color="#2E2E36" />
-          <SolidColorBrush x:Key="TsChipOn" Color="#3A2F73" />
-          <SolidColorBrush x:Key="TsChipOnText" Color="#D9CFFF" />
-          <SolidColorBrush x:Key="TsHover" Color="#14FFFFFF" />
-          <SolidColorBrush x:Key="TsBannerBg" Color="#3D2F12" />
-          <SolidColorBrush x:Key="TsBannerFg" Color="#F5D08A" />
-          <SolidColorBrush x:Key="TsBreakBg" Color="#1B2B45" />
-          <SolidColorBrush x:Key="TsBreakFg" Color="#A8C7FA" />
-          <SolidColorBrush x:Key="TsRecBg" Color="#4A1F1F" />
-          <SolidColorBrush x:Key="TsRecFg" Color="#FFB4B4" />
-          <SolidColorBrush x:Key="TsKey" Color="#B7A6FF" />
-          <SolidColorBrush x:Key="TsDiffAdd" Color="#1E3A28" />
-          <SolidColorBrush x:Key="TsDiffDel" Color="#4A2222" />
+          <SolidColorBrush x:Key="TsMuted" Color="#A59AAE" />
+          <SolidColorBrush x:Key="TsText" Color="#ECE6F0" />
+          <SolidColorBrush x:Key="TsChip" Color="#29232F" />
+          <SolidColorBrush x:Key="TsChipOn" Color="#3D2550" />
+          <SolidColorBrush x:Key="TsChipOnText" Color="#E2C8F5" />
+          <SolidColorBrush x:Key="TsHover" Color="#12FFFFFF" />
+          <SolidColorBrush x:Key="TsRowSelected" Color="#2C2235" />
+          <SolidColorBrush x:Key="TsBannerBg" Color="#4A3A10" />
+          <SolidColorBrush x:Key="TsBannerFg" Color="#F5D684" />
+          <SolidColorBrush x:Key="TsBreakBg" Color="#4A3A10" />
+          <SolidColorBrush x:Key="TsBreakFg" Color="#F5D684" />
+          <SolidColorBrush x:Key="TsRecBg" Color="#4A1C26" />
+          <SolidColorBrush x:Key="TsRecFg" Color="#FFB3BE" />
+          <SolidColorBrush x:Key="TsKey" Color="#C08BE8" />
+          <SolidColorBrush x:Key="TsDiffAdd" Color="#1F3A28" />
+          <SolidColorBrush x:Key="TsDiffDel" Color="#4A1C26" />
+          <SolidColorBrush x:Key="TsNoticeBg" Color="#2B2532" />
+          <SolidColorBrush x:Key="TsVerifiedBg" Color="#1F3A28" />
+          <SolidColorBrush x:Key="TsVerifiedFg" Color="#A4DDB5" />
+          <SolidColorBrush x:Key="TsGetBg" Color="#1F3A28" />
+          <SolidColorBrush x:Key="TsGetFg" Color="#A4DDB5" />
+          <SolidColorBrush x:Key="TsPostBg" Color="#4C2D66" />
+          <SolidColorBrush x:Key="TsPostFg" Color="#E2C8F5" />
+          <SolidColorBrush x:Key="TsPutBg" Color="#4A3A10" />
+          <SolidColorBrush x:Key="TsPutFg" Color="#F5D684" />
+          <SolidColorBrush x:Key="TsDelBg" Color="#4A1C26" />
+          <SolidColorBrush x:Key="TsDelFg" Color="#FF9AAA" />
+          <SolidColorBrush x:Key="TsOtherBg" Color="#2E2833" />
+          <SolidColorBrush x:Key="TsOtherFg" Color="#C8BED0" />
+          <SolidColorBrush x:Key="TsOk" Color="#6FCF97" />
+          <SolidColorBrush x:Key="TsBad" Color="#FF8A95" />
+          <SolidColorBrush x:Key="TsInfo" Color="#8DB8F2" />
+          <SolidColorBrush x:Key="TsPending" Color="#A59AAE" />
+          <SolidColorBrush x:Key="TsJsonStr" Color="#8FD9A8" />
+          <SolidColorBrush x:Key="TsJsonNum" Color="#F5D684" />
+          <SolidColorBrush x:Key="TsJsonBool" Color="#D7AEF5" />
+          <SolidColorBrush x:Key="TsJsonNull" Color="#A59AAE" />
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
@@ -64,31 +140,126 @@
     <Style Selector="TextBlock.section"><Setter Property="FontSize" Value="11" /><Setter Property="Foreground" Value="{DynamicResource TsMuted}" /><Setter Property="Margin" Value="8,10,0,4" /></Style>
     <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="{DynamicResource TsMuted}" /></Style>
 
+    <!-- small toolbar icon buttons -->
+    <Style Selector="Button.bar">
+      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Width" Value="32" /><Setter Property="Height" Value="32" /><Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="999" /><Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.bar:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsHover}" /></Style>
+    <Style Selector="Button.bar Path, Button.cert Path">
+      <Setter Property="Stroke" Value="{DynamicResource TsText}" /><Setter Property="StrokeThickness" Value="1.7" />
+      <Setter Property="StrokeLineCap" Value="Round" /><Setter Property="StrokeJoin" Value="Round" />
+      <Setter Property="Width" Value="17" /><Setter Property="Height" Value="17" /><Setter Property="Stretch" Value="Uniform" />
+    </Style>
+    <Style Selector="Button.cert">
+      <Setter Property="Background" Value="{DynamicResource TsAccent}" /><Setter Property="Foreground" Value="{DynamicResource TsOnAccent}" />
+      <Setter Property="BorderThickness" Value="0" /><Setter Property="CornerRadius" Value="999" /><Setter Property="Padding" Value="10,5" /><Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button.cert Path"><Setter Property="Stroke" Value="{DynamicResource TsOnAccent}" /><Setter Property="Width" Value="14" /><Setter Property="Height" Value="14" /></Style>
+    <Style Selector="Button.cert:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsAccentHover}" /><Setter Property="Foreground" Value="{DynamicResource TsOnAccent}" /></Style>
+    <Style Selector="Button.cert.verified"><Setter Property="Background" Value="{DynamicResource TsVerifiedBg}" /><Setter Property="Foreground" Value="{DynamicResource TsVerifiedFg}" /></Style>
+    <Style Selector="Button.cert.verified Path"><Setter Property="Stroke" Value="{DynamicResource TsVerifiedFg}" /></Style>
+    <Style Selector="Button.cert.verified:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsVerifiedBg}" /><Setter Property="Foreground" Value="{DynamicResource TsVerifiedFg}" /></Style>
+
+    <!-- rounded search box -->
+    <Style Selector="TextBox.search">
+      <Setter Property="CornerRadius" Value="999" /><Setter Property="Padding" Value="14,5" /><Setter Property="MinHeight" Value="30" />
+      <Setter Property="FontSize" Value="13" /><Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="InnerLeftContent">
+        <Template><Path Data="{StaticResource SearchIcon}" Stroke="{DynamicResource TsMuted}" StrokeThickness="1.7" StrokeLineCap="Round"
+                        Width="13" Height="13" Stretch="Uniform" Margin="12,0,0,0" VerticalAlignment="Center" /></Template>
+      </Setter>
+    </Style>
+    <Style Selector="TextBox.search /template/ Border#PART_BorderElement">
+      <Setter Property="CornerRadius" Value="999" /><Setter Property="Background" Value="{DynamicResource TsField}" /><Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBox.search:pointerover /template/ Border#PART_BorderElement"><Setter Property="Background" Value="{DynamicResource TsField}" /><Setter Property="BorderBrush" Value="{DynamicResource TsBorder}" /></Style>
+    <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource TsWindow}" /><Setter Property="BorderBrush" Value="{DynamicResource TsAccent}" /><Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="TextBox.search.big"><Setter Property="MinHeight" Value="40" /><Setter Property="FontSize" Value="14" /><Setter Property="Padding" Value="16,8" /></Style>
+
+    <!-- method tags, status, JSON values (theme-aware) -->
+    <Style Selector="Border.method"><Setter Property="Background" Value="{DynamicResource TsOtherBg}" /></Style>
+    <Style Selector="Border.method TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsOtherFg}" /></Style>
+    <Style Selector="Border.method.get"><Setter Property="Background" Value="{DynamicResource TsGetBg}" /></Style>
+    <Style Selector="Border.method.get TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsGetFg}" /></Style>
+    <Style Selector="Border.method.post"><Setter Property="Background" Value="{DynamicResource TsPostBg}" /></Style>
+    <Style Selector="Border.method.post TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsPostFg}" /></Style>
+    <Style Selector="Border.method.put"><Setter Property="Background" Value="{DynamicResource TsPutBg}" /></Style>
+    <Style Selector="Border.method.put TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsPutFg}" /></Style>
+    <Style Selector="Border.method.del"><Setter Property="Background" Value="{DynamicResource TsDelBg}" /></Style>
+    <Style Selector="Border.method.del TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsDelFg}" /></Style>
+    <Style Selector="StackPanel.status Ellipse"><Setter Property="Fill" Value="{DynamicResource TsPending}" /></Style>
+    <Style Selector="StackPanel.status TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsPending}" /></Style>
+    <Style Selector="StackPanel.status.ok Ellipse"><Setter Property="Fill" Value="{DynamicResource TsOk}" /></Style>
+    <Style Selector="StackPanel.status.ok TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsOk}" /></Style>
+    <Style Selector="StackPanel.status.bad Ellipse"><Setter Property="Fill" Value="{DynamicResource TsBad}" /></Style>
+    <Style Selector="StackPanel.status.bad TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsBad}" /></Style>
+    <Style Selector="StackPanel.status.info Ellipse"><Setter Property="Fill" Value="{DynamicResource TsInfo}" /></Style>
+    <Style Selector="StackPanel.status.info TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsInfo}" /></Style>
+    <Style Selector="SelectableTextBlock.jv"><Setter Property="Foreground" Value="{DynamicResource TsJsonNull}" /></Style>
+    <Style Selector="SelectableTextBlock.jv.str"><Setter Property="Foreground" Value="{DynamicResource TsJsonStr}" /></Style>
+    <Style Selector="SelectableTextBlock.jv.num"><Setter Property="Foreground" Value="{DynamicResource TsJsonNum}" /></Style>
+    <Style Selector="SelectableTextBlock.jv.bool"><Setter Property="Foreground" Value="{DynamicResource TsJsonBool}" /></Style>
+
+    <!-- app rows, sheet, list -->
+    <Style Selector="Border.approw"><Setter Property="CornerRadius" Value="999" /><Setter Property="Padding" Value="4,2" /><Setter Property="Background" Value="Transparent" /></Style>
+    <Style Selector="Border.approw:pointerover"><Setter Property="Background" Value="{DynamicResource TsHover}" /></Style>
+    <Style Selector="Border.approw.on"><Setter Property="Background" Value="{DynamicResource TsChipOn}" /></Style>
+    <Style Selector="Border.approw.on TextBlock"><Setter Property="Foreground" Value="{DynamicResource TsChipOnText}" /></Style>
+    <Style Selector="Border.sheet"><Setter Property="Background" Value="{DynamicResource TsSheet}" /><Setter Property="CornerRadius" Value="22,22,0,0" /></Style>
+    <Style Selector="TabControl.sheet TabItem"><Setter Property="CornerRadius" Value="999" /><Setter Property="MinHeight" Value="30" /><Setter Property="Padding" Value="14,0" /><Setter Property="Margin" Value="0,0,4,0" /></Style>
+    <Style Selector="TabControl.sheet TabItem /template/ Border#PART_SelectedPipe"><Setter Property="IsVisible" Value="False" /></Style>
+    <Style Selector="TabControl.sheet TabItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource TsWindow}" /></Style>
+    <Style Selector="TabControl.sheet TabItem:pointerover /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource TsHover}" /></Style>
+    <Style Selector="TabControl.sheet TabItem:selected:pointerover /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="{DynamicResource TsWindow}" /></Style>
+    <Style Selector="TabControl.sheet TabItem:selected"><Setter Property="Foreground" Value="{DynamicResource TsText}" /></Style>
+    <Style Selector="DataGridColumnHeader"><Setter Property="Background" Value="Transparent" /></Style>
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsRowSelected}" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsHover}" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsRowSelected}" /></Style>
+    <Style Selector="DataGridRow:selected:focus /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsRowSelected}" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="DataGridRow:selected:focus:pointerover /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsRowSelected}" /><Setter Property="Opacity" Value="1" /></Style>
+    <Style Selector="DataGrid:focus DataGridRow:selected /template/ Rectangle#BackgroundRectangle"><Setter Property="Fill" Value="{DynamicResource TsRowSelected}" /><Setter Property="Opacity" Value="1" /></Style>
+
+    <!-- notification banner -->
+    <Style Selector="Border.notice">
+      <Setter Property="Background" Value="{DynamicResource TsNoticeBg}" /><Setter Property="CornerRadius" Value="10" />
+      <Setter Property="BorderThickness" Value="1" /><Setter Property="BorderBrush" Value="{DynamicResource TsBorder}" />
+      <Setter Property="BoxShadow" Value="0 6 24 0 #33000000" />
+    </Style>
+    <Style Selector="Border.noticeBar"><Setter Property="Background" Value="{DynamicResource TsSuccess}" /></Style>
+    <Style Selector="Border.noticeBar.info"><Setter Property="Background" Value="{DynamicResource TsAccent}" /></Style>
+    <Style Selector="Border.noticeBar.warning"><Setter Property="Background" Value="{DynamicResource TsWarning}" /></Style>
+    <Style Selector="Border.noticeBar.error"><Setter Property="Background" Value="{DynamicResource TsDanger}" /></Style>
+
     <!-- toolbar buttons -->
     <Style Selector="Button.tool">
       <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="8,5" /><Setter Property="FontSize" Value="13" /><Setter Property="CornerRadius" Value="7" />
+      <Setter Property="Padding" Value="11,5" /><Setter Property="FontSize" Value="13" /><Setter Property="CornerRadius" Value="999" />
     </Style>
     <Style Selector="Button.tool:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsHover}" /></Style>
     <Style Selector="Button.primary">
-      <Setter Property="Background" Value="{DynamicResource TsAccent}" /><Setter Property="Foreground" Value="White" />
-      <Setter Property="CornerRadius" Value="8" /><Setter Property="Padding" Value="14,6" /><Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Background" Value="{DynamicResource TsAccent}" /><Setter Property="Foreground" Value="{DynamicResource TsOnAccent}" />
+      <Setter Property="CornerRadius" Value="999" /><Setter Property="Padding" Value="16,7" /><Setter Property="FontWeight" Value="Medium" />
     </Style>
-    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#5B3BE0" /><Setter Property="Foreground" Value="White" /></Style>
-    <Style Selector="Button.primary.stop"><Setter Property="Background" Value="{DynamicResource TsDanger}" /></Style>
-    <Style Selector="Button.primary.stop:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#B82E2E" /></Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsAccentHover}" /><Setter Property="Foreground" Value="{DynamicResource TsOnAccent}" /></Style>
+    <Style Selector="Button.primary.stop"><Setter Property="Background" Value="{DynamicResource TsDanger}" /><Setter Property="Foreground" Value="{DynamicResource TsOnDanger}" /></Style>
+    <Style Selector="Button.primary.stop:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsDangerHover}" /><Setter Property="Foreground" Value="{DynamicResource TsOnDanger}" /></Style>
 
     <!-- filter chips and segmented buttons -->
     <Style Selector="Button.chip">
-      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="1" /><Setter Property="BorderBrush" Value="{DynamicResource TsBorder}" />
       <Setter Property="CornerRadius" Value="999" /><Setter Property="Padding" Value="11,4" /><Setter Property="FontSize" Value="12" />
       <Setter Property="Foreground" Value="{DynamicResource TsMuted}" />
     </Style>
     <Style Selector="Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsHover}" /></Style>
-    <Style Selector="Button.chip.on"><Setter Property="Background" Value="{DynamicResource TsChipOn}" /><Setter Property="Foreground" Value="{DynamicResource TsChipOnText}" /></Style>
+    <Style Selector="Button.chip.on"><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="Background" Value="{DynamicResource TsChipOn}" /><Setter Property="Foreground" Value="{DynamicResource TsChipOnText}" /></Style>
     <Style Selector="Button.chip.on:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TsChipOn}" /><Setter Property="Foreground" Value="{DynamicResource TsChipOnText}" /></Style>
     <Style Selector="Button.seg">
-      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="CornerRadius" Value="999" />
       <Setter Property="HorizontalAlignment" Value="Stretch" /><Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="Padding" Value="6,4" />
       <Setter Property="Foreground" Value="{DynamicResource TsMuted}" />
     </Style>
@@ -108,7 +279,7 @@
       <Setter Property="StrokeThickness" Value="1.6" /><Setter Property="Width" Value="13" /><Setter Property="Height" Value="13" /><Setter Property="Stretch" Value="Uniform" />
     </Style>
 
-    <Style Selector="Border.pane"><Setter Property="Background" Value="{DynamicResource TsPane}" /><Setter Property="CornerRadius" Value="8" /></Style>
+    <Style Selector="Border.pane"><Setter Property="Background" Value="{DynamicResource TsPane}" /><Setter Property="CornerRadius" Value="14" /></Style>
     <Style Selector="TextBox.mono">
       <Setter Property="FontFamily" Value="Menlo,Consolas,monospace" /><Setter Property="FontSize" Value="12" />
       <Setter Property="IsReadOnly" Value="True" /><Setter Property="AcceptsReturn" Value="True" /><Setter Property="TextWrapping" Value="Wrap" />
