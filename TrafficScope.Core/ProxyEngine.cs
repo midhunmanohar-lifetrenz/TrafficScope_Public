@@ -25,6 +25,7 @@ public sealed class ProxyEngine : IDisposable
     const int MaxBody = 8 * 1024 * 1024;
     readonly ProxyServer _proxy;
     readonly IProcessResolver _resolver = ProcessResolver.Create();
+    readonly string _dataDir;
     ExplicitProxyEndPoint? _endpoint;
     long _nextId;
     long _ignored;
@@ -52,15 +53,23 @@ public sealed class ProxyEngine : IDisposable
         _proxy.CertificateManager.RootCertificateName = CertificateService.RootName;
         _proxy.CertificateManager.RootCertificateIssuerName = "TrafficScope";
         _proxy.CertificateManager.PfxFilePath = Path.Combine(dataDir, "rootCert.pfx");
-        _proxy.CertificateManager.PfxPassword = "trafficscope-local";
+        // The key file is made owner-only and (in the real data folder) re-encrypted with a random password
+        // kept in the Keychain / DPAPI, so other users and programs cannot copy the trusted root key.
+        _dataDir = dataDir;
+        _proxy.CertificateManager.PfxPassword = CertificateService.ProtectKey(dataDir);
         _proxy.CertificateManager.SaveFakeCertificates = false;
         _proxy.BeforeRequest += OnRequest;
         _proxy.BeforeResponse += OnResponse;
+        _proxy.AfterResponse += OnAfterResponse;
         _proxy.ServerCertificateValidationCallback += (_, e) => { e.IsValid = e.SslPolicyErrors == System.Net.Security.SslPolicyErrors.None; return Task.CompletedTask; };
     }
 
     public System.Security.Cryptography.X509Certificates.X509Certificate2? RootCertificate => _proxy.CertificateManager.RootCertificate;
-    public void EnsureRootCertificate() => _proxy.CertificateManager.EnsureRootCertificate();
+    public void EnsureRootCertificate()
+    {
+        _proxy.CertificateManager.EnsureRootCertificate();
+        CertificateService.RestrictKeyFile(_dataDir);
+    }
 
     public void Start(int port = 0)
     {
@@ -104,6 +113,9 @@ public sealed class ProxyEngine : IDisposable
 
     async Task OnTunnelConnect(object sender, TunnelConnectSessionEventArgs e)
     {
+        // Not recording (idle, paused, or passing traffic through after Stop): tunnel untouched and
+        // skip the per-connection process lookup, which is the slow part.
+        if (!_capturing || Paused) { e.DecryptSsl = false; return; }
         var proc = await _resolver.ResolveAsync(e.ClientRemoteEndPoint.Port, Port);
         if (!Wanted(proc))
         {
@@ -134,8 +146,28 @@ public sealed class ProxyEngine : IDisposable
             .Select(l => { var i = l.IndexOf(':'); return new KeyValuePair<string, string>(l[..i].Trim(), l[(i + 1)..].Trim()); })
             .Where(kv => kv.Key.Length > 0).ToList();
 
+    /// <summary>True for content worth holding in memory when its size is not known up front.</summary>
+    public static bool IsTextType(string? contentType)
+    {
+        var ct = (contentType ?? "").ToLowerInvariant();
+        return ct.Length == 0 || ct.StartsWith("text/") || ct.Contains("json") || ct.Contains("xml") || ct.Contains("javascript")
+            || ct.Contains("x-www-form-urlencoded") || ct.Contains("html") || ct.Contains("graphql") || ct.StartsWith("image/");
+    }
+
+    /// <summary>
+    /// Decides whether a body is read into memory. Bodies larger than the limit, and unknown-length
+    /// bodies of binary types (downloads, video), stream straight through instead.
+    /// </summary>
+    public static string? SkipReason(long contentLength, string? contentType)
+    {
+        if (contentLength > MaxBody) return $"Body not captured: {Formatting.Size(contentLength)} is over the {MaxBody / (1024 * 1024)} MB limit. It was passed through unchanged.";
+        if (contentLength < 0 && !IsTextType(contentType)) return "Body not captured: a binary stream of unknown size. It was passed through unchanged.";
+        return null;
+    }
+
     async Task OnRequest(object sender, SessionEventArgs e)
     {
+        if (!_capturing || Paused) return;
         var proc = await _resolver.ResolveAsync(e.ClientRemoteEndPoint.Port, Port);
         if (!Wanted(proc)) { return; }
         var req = e.HttpClient.Request;
@@ -153,7 +185,9 @@ public sealed class ProxyEngine : IDisposable
         };
         if (req.HasBody)
         {
-            try { var b = await e.GetRequestBody(); flow.RequestBody = b.Length > MaxBody ? b[..MaxBody] : b; } catch { }
+            flow.RequestBodyNote = SkipReason(req.ContentLength, req.ContentType);
+            if (flow.RequestBodyNote == null)
+                try { var b = await e.GetRequestBody(); flow.RequestBody = b.Length > MaxBody ? b[..MaxBody] : b; } catch { }
         }
         e.UserData = flow;
         FlowStarted?.Invoke(flow);
@@ -236,10 +270,12 @@ public sealed class ProxyEngine : IDisposable
         var ct = res.ContentType ?? "";
         if (res.HasBody && !ct.Contains("event-stream", StringComparison.OrdinalIgnoreCase))
         {
-            try { var b = await e.GetResponseBody(); flow.ResponseBody = b.Length > MaxBody ? b[..MaxBody] : b; } catch { }
+            flow.ResponseBodyNote = SkipReason(res.ContentLength, ct);
+            if (flow.ResponseBodyNote == null)
+                try { var b = await e.GetResponseBody(); flow.ResponseBody = b.Length > MaxBody ? b[..MaxBody] : b; } catch { }
         }
 
-        var bp = _breakpoints.FirstOrDefault(b => b.OnResponse && b.Matches(flow.Method, flow.Url));
+        var bp = flow.ResponseBodyNote != null ? null : _breakpoints.FirstOrDefault(b => b.OnResponse && b.Matches(flow.Method, flow.Url));
         if (bp != null && BreakpointHandler != null)
         {
             var ctx = new BreakpointContext
@@ -269,6 +305,21 @@ public sealed class ProxyEngine : IDisposable
         }
         FlowUpdated?.Invoke(flow);
         flow.RaiseChanged();
+    }
+
+    /// <summary>Runs when a session ends, including when it failed: a flow with no response gets an error instead of staying pending.</summary>
+    Task OnAfterResponse(object sender, SessionEventArgs e)
+    {
+        if (e.UserData is Flow flow && flow.StatusCode == null && flow.Error == null)
+        {
+            var ex = e.Exception;
+            while (ex?.InnerException != null) ex = ex.InnerException;
+            flow.Error = ex?.Message ?? "No response: the connection failed or was closed before the server answered.";
+            flow.Duration = DateTime.Now - flow.StartedAt;
+            FlowUpdated?.Invoke(flow);
+            flow.RaiseChanged();
+        }
+        return Task.CompletedTask;
     }
 
     public long NextId() => Interlocked.Increment(ref _nextId);

@@ -26,6 +26,9 @@ public sealed class Flow
     public byte[]? RequestBody { get; set; }
     public byte[]? ResponseBody { get; set; }
     public string? Error { get; set; }
+    /// <summary>Why a body was not held in memory (too large or a binary stream); null when it was captured.</summary>
+    public string? RequestBodyNote { get; set; }
+    public string? ResponseBodyNote { get; set; }
     public bool IsTunnel { get; set; }
     public bool Mocked { get; set; }
     public bool Edited { get; set; }

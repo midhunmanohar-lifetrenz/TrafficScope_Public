@@ -40,7 +40,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     readonly ProxyEngine _engine = new(FavoritesStore.DataDir);
     readonly FavoritesStore _store = new();
     readonly SettingsStore _settingsStore = new();
+    /// <summary>Oldest requests are dropped beyond this, so a long session cannot use unlimited memory.</summary>
+    public const int MaxFlows = 5000;
     readonly List<FlowVm> _all = new();
+    readonly Dictionary<Flow, FlowVm> _byFlow = new();
+    bool _countsQueued;
+    public int DroppedFlows { get; private set; }
     readonly Dictionary<string, bool> _selected = new();
     readonly Dictionary<string, AppEntry> _favorites = new();
     readonly Dictionary<string, int> _counts = new();
@@ -111,46 +116,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ? "The TrafficScope certificate is installed and trusted. Click to check again."
         : "Trust the TrafficScope certificate so HTTPS can be read (needed once)";
 
-    // ---------- notification banner ----------
-    [ObservableProperty] string _noticeText = "";
-    [ObservableProperty] NoticeKind _noticeKind;
-    CancellationTokenSource? _noticeCts;
-    public bool HasNotice => NoticeText.Length > 0;
-    public bool NoticeIsError => NoticeKind == NoticeKind.Error;
-    public bool NoticeIsWarning => NoticeKind == NoticeKind.Warning;
-    public bool NoticeIsSuccess => NoticeKind == NoticeKind.Success;
-    public bool NoticeIsInfo => NoticeKind == NoticeKind.Info;
-    public string NoticeGlyph => NoticeKind switch { NoticeKind.Success => "✓", NoticeKind.Info => "i", _ => "!" };
-    partial void OnNoticeTextChanged(string value) => OnPropertyChanged(nameof(HasNotice));
-    partial void OnNoticeKindChanged(NoticeKind value)
-    {
-        foreach (var p in new[] { nameof(NoticeIsError), nameof(NoticeIsWarning), nameof(NoticeIsSuccess), nameof(NoticeIsInfo), nameof(NoticeGlyph) })
-            OnPropertyChanged(p);
-    }
-    partial void OnStatusChanged(string value) => Notify(value, Classify(value));
-
-    public static NoticeKind Classify(string text)
-    {
-        if (text.StartsWith("Could not") || text.StartsWith("Failed") || text.StartsWith("Not started") || text.Contains("not trusted yet"))
-            return NoticeKind.Error;
-        if (text.StartsWith("Select at least")) return NoticeKind.Warning;
-        if (text.EndsWith("…")) return NoticeKind.Info;
-        return NoticeKind.Success;
-    }
-
-    /// <summary>Shows a banner that hides itself; progress messages ("…") stay until the next one, errors stay longer.</summary>
-    public async void Notify(string text, NoticeKind kind)
-    {
-        _noticeCts?.Cancel();
-        _noticeCts = new CancellationTokenSource();
-        var token = _noticeCts.Token;
-        NoticeKind = kind; NoticeText = text;
-        if (string.IsNullOrEmpty(text) || (kind == NoticeKind.Info && text.EndsWith("…"))) return;
-        try { await Task.Delay(kind == NoticeKind.Error ? 10000 : kind == NoticeKind.Warning ? 6000 : 4500, token); NoticeText = ""; }
-        catch (TaskCanceledException) { }
-    }
-
-    [RelayCommand] void DismissNotice() { _noticeCts?.Cancel(); NoticeText = ""; }
     public bool ShowTunnels { get => Settings.ShowTunnels; set { Settings.ShowTunnels = value; SaveSettings(); ApplyFilter(); OnPropertyChanged(); } }
     public bool MaskSecrets { get => Settings.MaskSecrets; set { Settings.MaskSecrets = value; SaveSettings(); OnPropertyChanged(); } }
     public string TreeToggleText => ShowTree ? "Raw" : "Tree";
@@ -172,60 +137,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
     public bool HasRules => RulesSummary.Length > 0;
-
-    // ---------- empty list explanations ----------
-    /// <summary>Tunnels whose host is still outside the decrypt-only list (these are why the list can look empty).</summary>
-    List<FlowVm> BlockedTunnels => Settings.DecryptOnlyHosts.Count == 0 ? new()
-        : _all.Where(f => f.Flow.IsTunnel && !HostPattern.MatchesAny(f.Flow.Host, Settings.DecryptOnlyHosts)).ToList();
-    List<string> SuggestedHosts => HostPattern.SuggestAll(BlockedTunnels.Select(f => f.Flow.Host));
-    public bool ShowTunnelHint => Flows.Count == 0 && !ShowTunnels && BlockedTunnels.Count > 0;
-    public bool ShowFilterHint => Flows.Count == 0 && !ShowTunnelHint && _all.Any(f => !f.Flow.IsTunnel);
-    public bool ShowStartHint => Flows.Count == 0 && !ShowTunnelHint && !ShowFilterHint;
-    public string TunnelHintTitle
-    {
-        get { var n = BlockedTunnels.Count; return $"{n} connection{(n == 1 ? " was" : "s were")} recorded but not decrypted"; }
-    }
-    public string TunnelHintDetail
-    {
-        get
-        {
-            var hosts = BlockedTunnels.Select(f => f.Flow.Host).Distinct().ToList();
-            var shown = string.Join(", ", hosts.Take(3)) + (hosts.Count > 3 ? $" and {hosts.Count - 3} more" : "");
-            return $"Your app talks to {shown}, which {(hosts.Count == 1 ? "is" : "are")} not on your decrypt-only list " +
-                   $"({string.Join(", ", Settings.DecryptOnlyHosts)}). Add {(hosts.Count == 1 ? "it" : "them")} to see requests and bodies.";
-        }
-    }
-    public string DecryptSuggestedText
-    {
-        get { var s = SuggestedHosts; return "Decrypt " + string.Join(", ", s.Take(2)) + (s.Count > 2 ? $" +{s.Count - 2}" : ""); }
-    }
-
-    void NotifyEmptyState()
-    {
-        foreach (var p in new[] { nameof(ShowTunnelHint), nameof(ShowFilterHint), nameof(ShowStartHint),
-                                  nameof(TunnelHintTitle), nameof(TunnelHintDetail), nameof(DecryptSuggestedText) })
-            OnPropertyChanged(p);
-    }
-
-    [RelayCommand]
-    async Task DecryptSuggested()
-    {
-        var add = SuggestedHosts.Where(h => !Settings.DecryptOnlyHosts.Contains(h, StringComparer.OrdinalIgnoreCase)).ToList();
-        if (add.Count == 0) return;
-        Settings.DecryptOnlyHosts.AddRange(add);
-        SaveSettings();
-        await ShowToast($"Added {string.Join(", ", add)}. Use your app again. If nothing appears, press Stop, then Record.");
-    }
-
-    [RelayCommand]
-    async Task DecryptAllHosts()
-    {
-        Settings.DecryptOnlyHosts.Clear();
-        SaveSettings();
-        await ShowToast("All hosts of the selected apps will be decrypted. Use your app again. If nothing appears, press Stop, then Record.");
-    }
-
-    [RelayCommand] void ClearFilters() { FilterText = ""; FilterKind = FlowFilterKind.All; }
 
     public string StartHintText => CertTrusted
         ? "No requests yet. Pick apps on the left, press Record, then use your app."
@@ -262,6 +173,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _engine.FlowStarted += f => Dispatcher.UIThread.Post(() => AddFlow(f));
         _engine.FlowUpdated += f => Dispatcher.UIThread.Post(() => UpdateFlow(f));
         _engine.BreakpointHandler = OnBreakpoint;
+        RulesVm.RemoveCertificate = () => IsCapturing
+            ? (false, "Press Stop first. Removing the certificate while recording would break the apps being recorded.")
+            : CertificateService.Remove(_engine.RootCertificate!, FavoritesStore.DataDir);
         _appTimer.Tick += async (_, _) => await RefreshAppsAsync();
         _appTimer.Start();
         _clock.Tick += (_, _) => Tick();
@@ -311,7 +225,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var (ok, msg) = await Task.Run(RestoreProxy);
         if (ok) ProxyStillOn = false;
         await CheckLeftoverProxyAsync();
-        Status = ok && !HasLeftoverProxy ? "Proxy turned off. Your apps connect directly again." : "Could not turn the proxy off. " + msg;
+        if (ok && !HasLeftoverProxy) Say("Proxy turned off. Your apps connect directly again.", NoticeKind.Success);
+        else Fail("Could not turn the proxy off. " + msg);
     }
 
     public async Task CheckCertAsync()
@@ -367,7 +282,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var bytes = visible.Sum(f => (long)(f.Flow.ResponseBody?.Length ?? 0) + (f.Flow.RequestBody?.Length ?? 0));
         var apps = SelectedKeys().Length;
         FooterText = $"{(IsCapturing ? (IsPaused ? "Paused" : "Capturing") : "Not capturing")}  ·  {apps} app{(apps == 1 ? "" : "s")}  ·  {visible.Count} request{(visible.Count == 1 ? "" : "s")}  ·  {Formatting.Size(bytes)}"
-            + (IsCapturing ? $"  ·  {_engine.IgnoredConnections} other-app connections ignored" : "");
+            + (IsCapturing ? $"  ·  {_engine.IgnoredConnections} other-app connections ignored" : "")
+            + (DroppedFlows > 0 ? $"  ·  oldest {DroppedFlows} removed (keeps the latest {MaxFlows})" : "");
     }
 
     // ---------- apps ----------
@@ -438,78 +354,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand] void ShowRunning() => ShowInstalled = false;
     [RelayCommand] void ShowInstalledApps() => ShowInstalled = true;
 
-    // ---------- capture ----------
-    [RelayCommand]
-    async Task ToggleCaptureAsync()
-    {
-        if (IsCapturing) { await StopAsync(); return; }
-        if (SelectedKeys().Length == 0) { Status = "Select at least one app on the left first."; return; }
-
-        Status = "Starting proxy…";
-        try
-        {
-            _engine.Start();
-            var cert = _engine.RootCertificate!;
-            var trusted = await Task.Run(() => CertificateService.IsTrusted(cert));
-            if (!trusted)
-            {
-                Status = "Trusting the TrafficScope certificate (admin approval needed)…";
-                await Task.Run(() => CertificateService.Install(cert, FavoritesStore.DataDir));
-                trusted = await Task.Run(() => CertificateService.IsTrusted(cert));
-            }
-            CertTrusted = trusted;
-            if (!trusted)
-            {
-                // Never intercept HTTPS without a trusted certificate: apps would show "certificate invalid" errors.
-                _engine.Stop();
-                Status = "Not started: the TrafficScope certificate is not trusted yet, so your apps would show certificate errors. Use Install certificate, then press Record again.";
-                return;
-            }
-            Status = "Setting system proxy…";
-            var (pok, pmsg) = await Task.Run(() => SystemProxy.Enable(_engine.Port));
-            if (!pok) { _engine.Stop(); Status = "Could not set the system proxy. " + pmsg; return; }
-            _engine.BeginCapture(SelectedKeys());
-            ProxyStillOn = false;
-            IsPaused = false;
-            IsCapturing = true;
-            Status = $"Recording since {_engine.CaptureStartedAt:HH:mm:ss}. Only selected apps are recorded."
-                + (OperatingSystem.IsMacOS() && !SystemProxy.LastRunWithoutPrompt ? " Tip: to stop the password prompts, open Tools > Settings > Proxy permission." : "");
-            Tick();
-        }
-        catch (Exception ex) { Status = "Failed to start: " + ex.Message; }
-    }
-
-    public async Task StopAsync()
-    {
-        _engine.EndCapture();
-        var (ok, msg) = await Task.Run(RestoreProxy);
-        // Keep the proxy listening as a silent pass-through until TrafficScope quits: some apps
-        // (Adobe AIR, Java, Electron) keep using the proxy they saw at launch and would lose
-        // their connection ("No response from server") if it vanished.
-        IsCapturing = false;
-        IsPaused = false;
-        ProxyStillOn = !ok;
-        Status = ok
-            ? "Stopped. System proxy restored; apps that are still using it keep working while TrafficScope is open."
-            : "Could not turn the system proxy off. " + msg + " Press Turn proxy off and approve the prompt.";
-        Tick();
-    }
-
-    [RelayCommand] void TogglePause() { if (IsCapturing) IsPaused = !IsPaused; Tick(); }
-
-    [RelayCommand]
-    void Clear()
-    {
-        _all.Clear(); Flows.Clear(); SelectedFlow = null; _counts.Clear();
-        foreach (var a in Favorites.Concat(Others)) a.Count = 0;
-        NotifyCounts();
-    }
-
     // ---------- flows ----------
     public void AddFlow(Flow f)
     {
         var vm = new FlowVm(f);
         _all.Add(vm);
+        _byFlow[f] = vm;
+        if (_all.Count > MaxFlows) DropOldest(_all.Count - MaxFlows);
         if (f.Process != null)
         {
             var key = _selected.Keys.FirstOrDefault(k => AppMatcher.Matches(f.Process.Path, k));
@@ -526,15 +377,35 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     void UpdateFlow(Flow f)
     {
-        var vm = _all.FirstOrDefault(x => x.Flow == f);
-        if (vm == null) return;
+        if (!_byFlow.TryGetValue(f, out var vm)) return;
         vm.Refresh();
         if (SelectedFlow == vm) LoadInspector();
         NotifyCounts();
     }
 
+    void DropOldest(int n)
+    {
+        for (var i = 0; i < n; i++)
+        {
+            var old = _all[i];
+            _byFlow.Remove(old.Flow);
+            Flows.Remove(old);
+        }
+        _all.RemoveRange(0, n);
+        DroppedFlows += n;
+    }
+
+    /// <summary>Counts are recomputed once per burst of traffic, not once per request.</summary>
     void NotifyCounts()
     {
+        if (_countsQueued) return;
+        _countsQueued = true;
+        Dispatcher.UIThread.Post(FlushCounts, DispatcherPriority.Background);
+    }
+
+    void FlushCounts()
+    {
+        _countsQueued = false;
         OnPropertyChanged(nameof(AllChip)); OnPropertyChanged(nameof(ErrorsChip));
         OnPropertyChanged(nameof(TunnelText)); OnPropertyChanged(nameof(TunnelCount));
         NotifyEmptyState();
@@ -560,71 +431,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _multi = items.ToList();
         OnPropertyChanged(nameof(CanCompare));
     }
-
-    // ---------- inspector ----------
-    void LoadInspector()
-    {
-        var f = SelectedFlow?.Flow;
-        RequestTree.Clear(); ResponseTree.Clear(); RequestHeaders.Clear(); ResponseHeaders.Clear();
-        QueryParams.Clear(); FormFields.Clear(); RequestCookies.Clear(); ResponseCookies.Clear(); TimingRows.Clear();
-        ResponseImage = null; JwtText = "";
-        if (f == null)
-        {
-            RequestText = ResponseText = RequestBodyText = ResponseBodyText = RequestHeadersText = ResponseHeadersText = "";
-            NotifyInspector(); return;
-        }
-        RequestText = Formatting.RawRequest(f);
-        ResponseText = Formatting.RawResponse(f);
-        RequestBodyText = f.RequestBody is not { Length: > 0 } ? "No request body"
-            : FormParser.IsForm(f.RequestContentType)
-                ? "Form fields (decoded, see Raw for the original)\n\n" + string.Join("\n", FormParser.Parse(System.Text.Encoding.UTF8.GetString(f.RequestBody)).Select(p => $"{p.Name} = {p.Value}"))
-                : Formatting.BodyText(f.RequestContentType, f.RequestBody);
-        ResponseBodyText = f.IsTunnel ? ResponseText : f.ResponseBody is { Length: > 0 } ? Formatting.BodyText(f.ResponseContentType, f.ResponseBody)
-            : f.StatusCode == null ? (f.Error ?? "Waiting for response…") : "No response body";
-        RequestHeadersText = string.Join("\n", f.RequestHeaders.Select(h => $"{h.Key}: {h.Value}"));
-        ResponseHeadersText = string.Join("\n", f.ResponseHeaders.Select(h => $"{h.Key}: {h.Value}"));
-
-        if (JsonTree.LooksLikeJson(f.RequestContentType, f.RequestBody) && JsonTree.Build(f.RequestBody) is { } rq) RequestTree.Add(new JsonNodeVm(rq, 0));
-        if (JsonTree.LooksLikeJson(f.ResponseContentType, f.ResponseBody) && JsonTree.Build(f.ResponseBody) is { } rs) ResponseTree.Add(new JsonNodeVm(rs, 0));
-        if ((f.ResponseContentType ?? "").StartsWith("image/") && f.ResponseBody is { Length: > 0 } img && !(f.ResponseContentType ?? "").Contains("svg"))
-        {
-            try { using var ms = new MemoryStream(img); ResponseImage = new Bitmap(ms); } catch { ResponseImage = null; }
-        }
-        foreach (var h in f.RequestHeaders) RequestHeaders.Add(new NameValue(h.Key, h.Value));
-        foreach (var h in f.ResponseHeaders) ResponseHeaders.Add(new NameValue(h.Key, h.Value));
-        if (JwtDecoder.FindInHeaders(f.RequestHeaders) is { } jwt)
-        {
-            var exp = jwt.ExpiresUtc is { } e ? $"Expires {e.ToLocalTime():dd MMM yyyy HH:mm}" + (e < DateTime.UtcNow ? " (expired)" : "") + "\n" : "";
-            JwtText = exp + "Header\n" + jwt.HeaderJson + "\n\nPayload\n" + jwt.PayloadJson;
-        }
-        foreach (var q in FormParser.Query(f.Url)) QueryParams.Add(q);
-        if (FormParser.IsForm(f.RequestContentType) && f.RequestBody is { Length: > 0 } fb)
-            foreach (var p in FormParser.Parse(System.Text.Encoding.UTF8.GetString(fb))) FormFields.Add(p);
-        foreach (var c in CookieParser.Request(f.RequestHeaders)) RequestCookies.Add(c);
-        foreach (var c in CookieParser.Response(f.ResponseHeaders)) ResponseCookies.Add(c);
-
-        TimingRows.Add(new("Started", f.StartedAt.ToString("dd MMM yyyy HH:mm:ss.fff")));
-        TimingRows.Add(new("Total time", f.Duration is { } d ? $"{d.TotalMilliseconds:0} ms" : "pending"));
-        TimingRows.Add(new("Request size", Formatting.Size(f.RequestBody?.Length ?? 0)));
-        TimingRows.Add(new("Response size", Formatting.Size(f.ResponseBody?.Length ?? 0)));
-        TimingRows.Add(new("Protocol", f.HttpVersion));
-        TimingRows.Add(new("App", f.Process != null ? $"{f.AppName} (pid {f.Process.Pid})" : f.AppName));
-        if (f.Process != null) TimingRows.Add(new("Executable", f.Process.Path));
-        if (f.Mocked) TimingRows.Add(new("Note", "Answered by a mock rule; the server was not called."));
-        if (f.Edited) TimingRows.Add(new("Note", "Changed at a breakpoint."));
-        if (Settings.DelayMs > 0) TimingRows.Add(new("Slow network", $"+{Settings.DelayMs} ms added per request"));
-        NotifyInspector();
-    }
-
-    void NotifyInspector()
-    {
-        NotifyBodyViews();
-        foreach (var p in new[] { nameof(HasForm), nameof(HasQuery), nameof(HasParams), nameof(NoParams), nameof(HasJwt) }) OnPropertyChanged(p);
-    }
-
-    [RelayCommand] void ToggleTree() => ShowTree = !ShowTree;
-    [RelayCommand] void ExpandAll() { foreach (var n in RequestTree.Concat(ResponseTree)) n.SetExpanded(true); }
-    [RelayCommand] void CollapseAll() { foreach (var n in RequestTree.Concat(ResponseTree)) { n.SetExpanded(false); n.IsExpanded = true; } }
 
     // ---------- copy ----------
     async Task Copy(string text, string message)
@@ -682,7 +488,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             await ShowToast(r.Message + (M ? " (secrets masked)" : "") + ". Opening Postman…");
             OpenPostmanApp();
         }
-        else { Status = r.Message; await ShowToast(r.Message); }
+        else Fail(r.Message);
     }
 
     public Action OpenPostmanApp { get; set; } = PostmanLauncher.Open;
@@ -752,6 +558,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await Ui.OpenRulesAsync(Settings, tab);
         SaveSettings();
         ApplyTheme();
+        await CheckCertAsync();   // the certificate can be removed from Settings
     }
 
     [RelayCommand]
@@ -831,8 +638,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Status = "Installing certificate (approve the prompts)…";
         var (ok, msg) = await Task.Run(() => CertificateService.Install(_engine.RootCertificate!, FavoritesStore.DataDir));
         await CheckCertAsync();
-        Status = CertTrusted ? "Certificate installed and trusted. Pick apps and press Record."
-            : "Certificate is not trusted yet" + (ok ? ". If it still is not trusted: open Keychain Access, login keychain, double-click TrafficScope Root CA, Trust, When using this certificate: Always Trust." : ". " + msg);
+        if (CertTrusted) Say("Certificate installed and trusted. Pick apps and press Record.", NoticeKind.Success);
+        else Fail("Certificate is not trusted yet" + (ok ? ". If it still is not trusted: open Keychain Access, login keychain, double-click TrafficScope Root CA, Trust, When using this certificate: Always Trust." : ". " + msg));
     }
 
     public void Dispose()

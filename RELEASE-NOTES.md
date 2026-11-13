@@ -1,22 +1,22 @@
-# TrafficScope 0.3.2
+# TrafficScope 0.3.3
 
 See every HTTP/HTTPS request and response from the apps you choose, on Mac and Windows.
 
 ## Downloads
 | File | For |
 |---|---|
-| `TrafficScope-0.3.2-macOS-AppleSilicon.dmg` | Macs with Apple Silicon (M1 and later), macOS 12+ |
-| `TrafficScope-0.3.2-Windows-Setup.exe` | Windows 10/11 x64, installs for the current user (no admin rights) |
-| `TrafficScope-0.3.2-Windows-Portable.zip` | Windows x64 without installing (single `TrafficScope.exe`) |
-| `SHA256SUMS-0.3.2.txt` | Checksums to confirm the files arrived intact |
+| `TrafficScope-0.3.3-macOS-AppleSilicon.dmg` | Macs with Apple Silicon (M1 and later), macOS 12+ |
+| `TrafficScope-0.3.3-Windows-Setup.exe` | Windows 10/11 x64, installs for the current user (no admin rights) |
+| `TrafficScope-0.3.3-Windows-Portable.zip` | Windows x64 without installing (single `TrafficScope.exe`) |
+| `SHA256SUMS-0.3.3.txt` | Checksums to confirm the files arrived intact |
 
 ## Install
 **Mac:** open the dmg, drag TrafficScope to Applications, open it. The first time, macOS blocks it because the build is not
 signed with an Apple Developer ID yet: click Done, then **System Settings > Privacy & Security > Open Anyway**.
 
-**Windows:** run `TrafficScope-0.3.2-Windows-Setup.exe`. If SmartScreen says "Windows protected your PC", click
+**Windows:** run `TrafficScope-0.3.3-Windows-Setup.exe`. If SmartScreen says "Windows protected your PC", click
 **More info > Run anyway** (the installer is not code-signed yet). Remove it from **Settings > Apps > Installed apps**.
-IT/silent: `TrafficScope-0.3.2-Windows-Setup.exe /S` (add `/nodesktop` to skip the Desktop shortcut); uninstall with `/uninstall /S`.
+IT/silent: `TrafficScope-0.3.3-Windows-Setup.exe /S` (add `/nodesktop` to skip the Desktop shortcut); uninstall with `/uninstall /S`.
 
 ## First use
 1. Press **Install certificate** (top right) and approve the system prompt (needed to read HTTPS). It turns into a green **Verified** button.
@@ -30,6 +30,16 @@ IT/silent: `TrafficScope-0.3.2-Windows-Setup.exe /S` (add `/nodesktop` to skip t
 - Mock responses, request/response breakpoints, slow network, decrypt-only host list, secret masking
 - Send to Postman (saves into your Postman workspace via the Postman API)
 - Light, Dark and System themes
+- New in 0.3.3 (security and reliability; updating is recommended):
+  - **Certificate key is protected.** The key file is now readable only by you and has a random password kept in the
+    Keychain (Windows: DPAPI). An existing key is converted on first start; the certificate stays the same and stays trusted
+  - The optional Mac "don't ask for my password" rule is installed more safely and is narrower: it only allows pointing
+    the proxy at this computer or switching it off. If you turned it on before, remove it and turn it on again in Settings
+  - Bodies over 8 MB and binary streams of unknown size pass straight through instead of filling memory
+  - Requests that cannot reach the server show **ERR** with the reason instead of staying pending
+  - Mac: a proxy that was switched on before recording (for example a company proxy) is put back on Stop
+  - Faster when not recording; the list keeps the latest 5,000 requests
+  - Settings has **Remove certificate**
 - New in 0.3.2:
   - New look: one calm surface with a pill search bar, a Record/Stop pill with a timer, pill chips and tabs, and the
     inspector as a rounded panel; Plum and gold colours for light and dark, with colour-coded method tags

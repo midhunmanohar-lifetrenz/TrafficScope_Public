@@ -52,6 +52,17 @@ jobs:
           if ($p.HasExited) { throw "Portable app exited early ($($p.ExitCode))" }
           Stop-Process -Id $p.Id -Force
 
+  # Runs the unit and UI tests on Windows too. Some tests rely on macOS tools, so for now this job
+  # reports its result without blocking the release.
+  windows-tests:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { global-json-file: global.json }
+      - run: dotnet test TrafficScope.sln -c Release --blame-hang-timeout 120s
+
   publish:
     needs: [build, windows-smoke]
     if: startsWith(github.ref, 'refs/tags/v')

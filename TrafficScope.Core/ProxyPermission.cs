@@ -21,9 +21,14 @@ public static class ProxyPermission
     public static string BuildRule(string user)
     {
         if (!IsValidUser(user)) throw new ArgumentException("Unsupported user name for a permission rule: " + user);
-        var cmds = string.Join(", ", AllowedVerbs.Select(v => $"{NetworkSetup} {v} *"));
+        // Only "point the proxy at this computer" and "switch it off" are allowed without a password.
+        var cmds = string.Join(", ", new[]
+        {
+            $"{NetworkSetup} -setwebproxy * 127.0.0.1 *", $"{NetworkSetup} -setsecurewebproxy * 127.0.0.1 *",
+            $"{NetworkSetup} -setwebproxystate * off", $"{NetworkSetup} -setsecurewebproxystate * off",
+        });
         return "# Installed by TrafficScope so Record/Stop can switch the HTTP/HTTPS proxy without a password.\n"
-             + "# Remove it in TrafficScope > Tools > Settings, or delete this file.\n"
+             + "# Remove it in TrafficScope > Settings, or delete this file.\n"
              + $"{user} ALL=(root) NOPASSWD: {cmds}\n";
     }
 
@@ -45,17 +50,23 @@ public static class ProxyPermission
         if (!OperatingSystem.IsMacOS()) return (false, "Only needed on macOS.");
         var user = CurrentUser;
         if (!IsValidUser(user)) return (false, $"Your user name ({user}) contains characters a permission rule cannot use.");
-        var tmp = Path.Combine(Path.GetTempPath(), "trafficscope-sudoers-" + Guid.NewGuid().ToString("N")[..8]);
-        File.WriteAllText(tmp, BuildRule(user));
-        try
-        {
-            var script = $"/usr/sbin/visudo -cf '{tmp}' && /usr/sbin/chown root:wheel '{tmp}' && /bin/chmod 0440 '{tmp}' && /bin/mv -f '{tmp}' {RulePath}";
-            var (ok, msg) = MacShell.RunAdmin(script, "TrafficScope will stop asking for your password when you press Record or Stop.");
-            if (!ok) return (false, msg.Contains("-128") ? "Cancelled." : msg);
-            return IsInstalled() ? (true, "Done. Record and Stop will no longer ask for your password.")
-                : (false, "The rule was written but macOS is not using it. Check that /etc/sudoers includes /private/etc/sudoers.d.");
-        }
-        finally { try { File.Delete(tmp); } catch { } }
+        var (ok, msg) = MacShell.RunAdmin(InstallScript(user), "TrafficScope will stop asking for your password when you press Record or Stop.");
+        if (!ok) return (false, msg.Contains("-128") ? "Cancelled." : msg);
+        return IsInstalled() ? (true, "Done. Record and Stop will no longer ask for your password.")
+            : (false, "The rule was written but macOS is not using it. Check that /etc/sudoers includes /private/etc/sudoers.d.");
+    }
+
+    /// <summary>
+    /// The root-side install. The rule is written, checked with visudo and moved into place entirely as root,
+    /// inside /etc/sudoers.d, so no file a normal program can modify is ever trusted. (sudo ignores the
+    /// dot-named temporary file.)
+    /// </summary>
+    public static string InstallScript(string user)
+    {
+        var lines = BuildRule(user).TrimEnd('\n').Split('\n').Select(l => "'" + l.Replace("'", "'\\''") + "'");
+        return "umask 077; T=$(/usr/bin/mktemp /etc/sudoers.d/.trafficscope.XXXXXX) || exit 1; "
+             + $"/usr/bin/printf '%s\\n' {string.Join(' ', lines)} > \"$T\" && /usr/sbin/visudo -cf \"$T\" && /usr/sbin/chown root:wheel \"$T\" "
+             + $"&& /bin/chmod 0440 \"$T\" && /bin/mv -f \"$T\" {RulePath} || {{ /bin/rm -f \"$T\"; exit 1; }}";
     }
 
     public static (bool Ok, string Message) Remove()

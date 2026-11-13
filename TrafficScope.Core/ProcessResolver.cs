@@ -25,8 +25,14 @@ sealed class CachingResolver(IProcessResolver inner) : IProcessResolver
 
     public async Task<ProcessInfo?> ResolveAsync(int clientPort, int proxyPort)
     {
-        if (_cache.TryGetValue(clientPort, out var c) && DateTime.UtcNow - c.At < TimeSpan.FromSeconds(15) && c.Info != null)
-            return c.Info;
+        if (_cache.TryGetValue(clientPort, out var c))
+        {
+            var age = DateTime.UtcNow - c.At;
+            // A miss is kept briefly so a busy keep-alive connection does not trigger a lookup per request.
+            if (age < TimeSpan.FromSeconds(c.Info != null ? 15 : 2)) return c.Info;
+        }
+        if (_cache.Count > 4000)
+            foreach (var kv in _cache) if (DateTime.UtcNow - kv.Value.At > TimeSpan.FromSeconds(15)) _cache.TryRemove(kv.Key, out _);
         var task = _pending.GetOrAdd(clientPort, _ => inner.ResolveAsync(clientPort, proxyPort));
         try
         {

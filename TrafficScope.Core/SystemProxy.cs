@@ -26,7 +26,9 @@ public static class SystemProxy
                 Notify();
                 return (true, "System proxy enabled.");
             }
-            return RunMac(MacCommands(true, port, Services()), "TrafficScope needs to set the system proxy.");
+            var services = Services();
+            SaveMacBackup(services);
+            return RunMac(MacCommands(true, port, services), "TrafficScope needs to set the system proxy.");
         }
         catch (Exception ex) { return (false, ex.Message); }
     }
@@ -46,9 +48,82 @@ public static class SystemProxy
                 Notify();
                 return (true, "System proxy restored.");
             }
-            return RunMac(MacCommands(false, 0, Services()), "TrafficScope needs to restore the system proxy.");
+            var result = RunMac(MacRestoreCommands(Services(), LoadMacBackup()), "TrafficScope needs to restore the system proxy.");
+            if (result.Ok) DeleteMacBackup();
+            return result;
         }
         catch (Exception ex) { return (false, ex.Message); }
+    }
+
+    // ---------- macOS: remember and restore the proxy that was set before recording ----------
+    public sealed record MacProxy(string Service, bool Secure, string Host, string Port);
+
+    static string MacBackupFile => Path.Combine(FavoritesStore.DataDir, "proxy-backup-mac.json");
+
+    static bool IsLocal(string host) => host is "127.0.0.1" or "localhost" or "::1" or "[::1]";
+
+    /// <summary>
+    /// Records proxies that are switched on and are not ours. An existing backup is kept: it comes from a
+    /// session that did not finish, and the current settings would be our own proxy.
+    /// </summary>
+    static void SaveMacBackup(IEnumerable<string> services)
+    {
+        try
+        {
+            if (File.Exists(MacBackupFile)) return;
+            var list = new List<MacProxy>();
+            foreach (var svc in services)
+                foreach (var secure in new[] { false, true })
+                {
+                    var (_, output) = ProxyPermission.Run(ProxyPermission.NetworkSetup, secure ? "-getsecurewebproxy" : "-getwebproxy", svc);
+                    if (ParseMacProxy(svc, secure, output) is { } p) list.Add(p);
+                }
+            if (list.Count > 0) File.WriteAllText(MacBackupFile, System.Text.Json.JsonSerializer.Serialize(list));
+        }
+        catch { }
+    }
+
+    /// <summary>The proxy to restore later, or null when none is switched on or it points at this computer.</summary>
+    public static MacProxy? ParseMacProxy(string service, bool secure, string output)
+    {
+        var (enabled, server) = ParseNetworkSetup(output);
+        if (!enabled || string.IsNullOrEmpty(server)) return null;
+        var i = server.LastIndexOf(':');
+        if (i <= 0) return null;
+        var host = server[..i]; var port = server[(i + 1)..];
+        return IsLocal(host) || !int.TryParse(port, out var n) || n <= 0 ? null : new MacProxy(service, secure, host, port);
+    }
+
+    static List<MacProxy> LoadMacBackup()
+    {
+        try
+        {
+            var list = System.Text.Json.JsonSerializer.Deserialize<List<MacProxy>>(File.ReadAllText(MacBackupFile)) ?? new();
+            return list.Where(IsValidBackup).ToList();
+        }
+        catch { return new(); }
+    }
+
+    /// <summary>The backup is a plain file, so only well-formed host names and ports are ever passed on.</summary>
+    public static bool IsValidBackup(MacProxy p) =>
+        p is { Service.Length: > 0, Host.Length: > 0 and <= 253 } && !IsLocal(p.Host)
+        && p.Host.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or ':' or '[' or ']')
+        && int.TryParse(p.Port, out var n) && n is > 0 and <= 65535;
+
+    static void DeleteMacBackup() { try { File.Delete(MacBackupFile); } catch { } }
+
+    /// <summary>Switches our proxy off and puts back any proxy that was on before recording.</summary>
+    public static List<string[]> MacRestoreCommands(IEnumerable<string> services, IReadOnlyCollection<MacProxy> backup)
+    {
+        var cmds = new List<string[]>();
+        foreach (var svc in services)
+            foreach (var secure in new[] { false, true })
+            {
+                var prev = backup.FirstOrDefault(b => b.Service == svc && b.Secure == secure);
+                if (prev != null) cmds.Add(new[] { secure ? "-setsecurewebproxy" : "-setwebproxy", svc, prev.Host, prev.Port });
+                else cmds.Add(new[] { secure ? "-setsecurewebproxystate" : "-setwebproxystate", svc, "off" });
+            }
+        return cmds;
     }
 
     static string BackupFile => Path.Combine(FavoritesStore.DataDir, "proxy-backup.json");

@@ -554,4 +554,73 @@ public class UiTests
         }
         finally { MainViewModel.RestoreProxy = SystemProxy.Disable; }
     }
+
+    [AvaloniaFact]
+    public void OldestRequestsAreDroppedBeyondTheLimit()
+    {
+        var w = new MainWindow(); var vm = w.ViewModel; vm.Ui = new FakeUi();
+        for (var i = 1; i <= MainViewModel.MaxFlows + 25; i++)
+            vm.AddFlow(new Flow { Id = i, AppName = "SampleClinic", Method = "GET", Url = "https://api.example.com/v2/items/" + i, Host = "api.example.com", Path = "/v2/items/" + i, StatusCode = 200 });
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(MainViewModel.MaxFlows, vm.Flows.Count);
+        Assert.Equal(25, vm.DroppedFlows);
+        Assert.Equal(26, vm.Flows[0].Id);
+        Assert.Equal($"All {MainViewModel.MaxFlows}", vm.AllChip);
+        Assert.Contains("oldest 25 removed", vm.FooterText);
+        vm.ClearCommand.Execute(null);
+        Assert.Equal(0, vm.DroppedFlows);
+    }
+
+    [AvaloniaFact]
+    public void InspectorExplainsBodiesThatWereNotCaptured()
+    {
+        var w = new MainWindow(); var vm = w.ViewModel; vm.Ui = new FakeUi();
+        var f = Samples.Make(1, "SampleClinic", "GET", "https://cdn.example.com/video.mp4", 200, "application/json", "", "video/mp4", "", 900);
+        f.ResponseBody = null; f.ResponseBodyNote = "Body not captured: 2048 MB is over the 8 MB limit. It was passed through unchanged.";
+        vm.AddFlow(f);
+        vm.SelectedFlow = vm.Flows[0];
+        Assert.StartsWith("Body not captured", vm.ResponseBodyText);
+
+        var failed = new Flow { Id = 2, AppName = "SampleClinic", Method = "GET", Url = "https://down.example.com/x", Host = "down.example.com", Path = "/x", Error = "Connection refused" };
+        vm.AddFlow(failed);
+        vm.SelectedFlow = vm.Flows[1];
+        Assert.Equal("ERR", vm.Flows[1].Status);
+        Assert.Equal("Connection refused", vm.ResponseBodyText);
+    }
+
+    [AvaloniaFact]
+    public async Task CertificateCanBeRemovedFromSettings()
+    {
+        var keep = RulesVm.RemoveCertificate;
+        try
+        {
+            var calls = 0;
+            RulesVm.RemoveCertificate = () => { calls++; return (true, "Certificate removed."); };
+            var rvm = new RulesVm(new AppSettings(), 2);
+            await rvm.RemoveCertificateCommand.ExecuteAsync(null);
+            Assert.Equal(1, calls);
+            Assert.Equal("Certificate removed.", rvm.CertificateStatus);
+            Assert.False(rvm.CertificateBusy);
+            var win = new RulesWindow(rvm); win.Show(); Dispatcher.UIThread.RunJobs();
+            Shot(win, "25-settings-certificate");
+            win.Close();
+        }
+        finally { RulesVm.RemoveCertificate = keep; }
+    }
+
+    [AvaloniaFact]
+    public async Task NoticeColourDoesNotDependOnWording()
+    {
+        var (_, vm, _) = Open(false);
+        MainViewModel.RestoreProxy = () => (false, "denied");
+        try
+        {
+            await vm.StopAsync();
+            Assert.True(vm.NoticeIsError);
+            MainViewModel.RestoreProxy = () => (true, "Done.");
+            await vm.StopAsync();
+            Assert.True(vm.NoticeIsSuccess);
+        }
+        finally { MainViewModel.RestoreProxy = SystemProxy.Disable; }
+    }
 }

@@ -90,7 +90,7 @@ public class InstallerTests
     public void SetupVersionMatchesApp() => Assert.Equal(AppInfo.Version, Installer.Version);
 
     [Fact]
-    public void VersionIsCentral() => Assert.Equal("0.3.2", AppInfo.Version);
+    public void VersionIsCentral() => Assert.Equal("0.3.3", AppInfo.Version);
 }
 
 public class LeftoverProxyTests
@@ -118,4 +118,79 @@ public class LeftoverProxyTests
 
     [Fact]
     public void RealCheckIsReadOnlyAndDoesNotThrow() => SystemProxy.DetectLeftover();
+}
+
+public class KeyProtectionTests
+{
+    static string NewDir() { var d = Path.Combine(Path.GetTempPath(), "ts-key-" + Guid.NewGuid().ToString("N")[..6]); Directory.CreateDirectory(d); return d; }
+
+    [Fact]
+    public void OldKeyFileIsReEncryptedWithARandomPasswordAndKeepsTheSameCertificate()
+    {
+        var dir = NewDir();
+        string thumb;
+        using (var e = new ProxyEngine(dir)) { e.EnsureRootCertificate(); thumb = e.RootCertificate!.Thumbprint; }   // test folders use the old fixed password
+        var pfx = CertificateService.KeyPath(dir);
+        Assert.True(File.Exists(pfx));
+
+        string? stored = null;
+        var password = CertificateService.ProtectKey(dir, () => stored, v => { stored = v; return true; });
+
+        Assert.NotEqual(CertificateService.LegacyPassword, password);
+        Assert.Equal(stored, password);
+        Assert.True(password.Length >= 32);
+        Assert.ThrowsAny<Exception>(() => System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12FromFile(pfx, CertificateService.LegacyPassword));
+        using var cert = System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12FromFile(pfx, password);
+        Assert.Equal(thumb, cert.Thumbprint);
+        Assert.True(cert.HasPrivateKey);
+        // a second start reuses the stored password and changes nothing
+        var before = File.ReadAllBytes(pfx);
+        Assert.Equal(password, CertificateService.ProtectKey(dir, () => stored, _ => throw new Exception("must not rewrite")));
+        Assert.Equal(before, File.ReadAllBytes(pfx));
+    }
+
+    [Fact]
+    public void KeyStaysUsableWhenThePasswordCannotBeStored()
+    {
+        var dir = NewDir();
+        using (var e = new ProxyEngine(dir)) e.EnsureRootCertificate();
+        var pfx = CertificateService.KeyPath(dir);
+        var before = File.ReadAllBytes(pfx);
+        Assert.Equal(CertificateService.LegacyPassword, CertificateService.ProtectKey(dir, () => null, _ => false));
+        Assert.Equal(before, File.ReadAllBytes(pfx));
+        Assert.False(File.Exists(pfx + ".new"));
+    }
+
+    [Fact]
+    public void UnreadableKeyIsCopiedAsideBeforeItCanBeReplaced()
+    {
+        var dir = NewDir();
+        var pfx = CertificateService.KeyPath(dir);
+        File.WriteAllBytes(pfx, new byte[] { 1, 2, 3, 4 });             // opens with no password we know
+        CertificateService.ProtectKey(dir, () => null, _ => true);
+        Assert.Equal(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(Path.Combine(dir, "rootCert.unreadable.pfx")));
+    }
+
+    [Fact]
+    public void KeyFileAndFolderAreOwnerOnly()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var dir = NewDir();
+        using (var e = new ProxyEngine(dir)) e.EnsureRootCertificate();
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(CertificateService.KeyPath(dir)));
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, File.GetUnixFileMode(dir));
+    }
+
+    [Fact]
+    public void TestFoldersNeverUseTheKeychain() =>
+        Assert.Equal(CertificateService.LegacyPassword, CertificateService.ProtectKey(NewDir()));
+
+    [Theory]
+    [InlineData(9L * 1024 * 1024, "application/json", true)]      // over the limit
+    [InlineData(1024L, "application/octet-stream", false)]         // small binary is fine
+    [InlineData(-1L, "application/json", false)]                   // unknown size, text: capture
+    [InlineData(-1L, "video/mp4", true)]                           // unknown size, binary stream: pass through
+    [InlineData(-1L, "application/octet-stream", true)]
+    public void LargeOrStreamingBodiesAreNotBuffered(long length, string type, bool skipped) =>
+        Assert.Equal(skipped, ProxyEngine.SkipReason(length, type) != null);
 }

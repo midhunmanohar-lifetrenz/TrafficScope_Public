@@ -33,6 +33,22 @@ public partial class RulesVm : ObservableObject
         LoadPermission();
     }
 
+    // ---------- certificate ----------
+    /// <summary>Set by the main window: removes trust in the TrafficScope root certificate.</summary>
+    public static Func<(bool Ok, string Message)> RemoveCertificate { get; set; } = () => (false, "Not available.");
+    [ObservableProperty] string _certificateStatus = "";
+    [ObservableProperty] bool _certificateBusy;
+
+    [RelayCommand]
+    async Task RemoveCertificateAsync()
+    {
+        CertificateBusy = true;
+        CertificateStatus = "Removing (approve the system prompt)…";
+        var (_, msg) = await Task.Run(RemoveCertificate);
+        CertificateStatus = msg;
+        CertificateBusy = false;
+    }
+
     // ---------- proxy permission (macOS) ----------
     public static Func<bool> CheckPermission { get; set; } = ProxyPermission.IsInstalled;
     public static Func<(bool Ok, string Message)> InstallPermission { get; set; } = ProxyPermission.Install;

@@ -130,6 +130,34 @@ public class IntegrationTests : IDisposable
     }
 
     [Fact]
+    public void RequestThatCannotReachTheServerShowsAnErrorInsteadOfStayingPending()
+    {
+        var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0); probe.Start();
+        var dead = ((IPEndPoint)probe.LocalEndpoint).Port; probe.Stop();     // nothing listens here
+        _e.BeginCapture(new[] { Curl });
+        Run(Via("--max-time", "10", $"http://127.0.0.1:{dead}/unreachable"));
+        var f = WaitFlow(x => x.Path == "/unreachable" && x.Error != null, 15000);
+        Assert.Null(f.StatusCode);
+        Assert.False(string.IsNullOrWhiteSpace(f.Error));
+        Assert.NotNull(f.Duration);
+    }
+
+    [Fact]
+    public void BodyOverTheLimitIsPassedThroughButNotHeldInMemory()
+    {
+        var file = Path.Combine(_dir, "big.bin");
+        File.WriteAllBytes(file, new byte[9 * 1024 * 1024]);
+        _e.BeginCapture(new[] { Curl });
+        var (code, _) = Run(Via("-X", "POST", "-H", "Content-Type: application/octet-stream", "-H", "Expect:", "--data-binary", "@" + file, Url("/upload")));
+        Assert.Equal(0, code);
+        var f = WaitFlow(x => x.Path == "/upload" && x.StatusCode != null, 20000);
+        Assert.Equal(200, f.StatusCode);
+        Assert.Null(f.RequestBody);
+        Assert.Contains("over the 8 MB limit", f.RequestBodyNote);
+        Assert.Equal(9 * 1024 * 1024, _srv.LastBody.Length);          // the server still received all of it
+    }
+
+    [Fact]
     public void ErrorStatusIsCaptured()
     {
         _e.BeginCapture(new[] { Curl });

@@ -96,12 +96,18 @@
             </StackPanel>
             <StackPanel Spacing="6" IsVisible="{Binding IsMac}">
               <TextBlock Text="Proxy permission" FontWeight="Medium" />
-              <TextBlock Text="Record and Stop change your Mac's proxy settings, which normally needs your password every time. Allow it once and TrafficScope can switch only the HTTP/HTTPS proxy on and off without asking. Note: any program running as you could then switch your proxy without a password too. You can remove it here at any time." TextWrapping="Wrap" Classes="caption" />
+              <TextBlock Text="Record and Stop change your Mac's proxy settings, which normally needs your password every time. Allow it once and TrafficScope can switch only the HTTP/HTTPS proxy on and off without asking. Note: any program running as you could then point your proxy at this computer, or switch it off, without a password too. You can remove it here at any time." TextWrapping="Wrap" Classes="caption" />
               <TextBlock Text="{Binding PermissionStatus}" TextWrapping="Wrap" FontSize="12" />
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <Button Classes="primary" Content="Don't ask for my password" Command="{Binding InstallProxyPermissionCommand}" IsVisible="{Binding PermissionMissing}" IsEnabled="{Binding !PermissionBusy}" />
                 <Button Content="Remove permission" Command="{Binding RemoveProxyPermissionCommand}" IsVisible="{Binding PermissionInstalled}" IsEnabled="{Binding !PermissionBusy}" />
               </StackPanel>
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Certificate" FontWeight="Medium" />
+              <TextBlock Text="TrafficScope reads HTTPS with its own certificate, which this computer trusts. If you stop using TrafficScope, remove it here. You can install it again at any time with Install certificate." TextWrapping="Wrap" Classes="caption" />
+              <TextBlock Text="{Binding CertificateStatus}" TextWrapping="Wrap" FontSize="12" IsVisible="{Binding CertificateStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <Button Content="Remove certificate" Command="{Binding RemoveCertificateCommand}" IsEnabled="{Binding !CertificateBusy}" HorizontalAlignment="Left" />
             </StackPanel>
             <StackPanel Spacing="4">
               <TextBlock Text="Privacy" FontWeight="Medium" />
