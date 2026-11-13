@@ -47,6 +47,8 @@ public sealed class FakeUi : IUiServices
     public (Flow, Flow)? Compared;
     public Task SetClipboardAsync(string text) { Clipboard = text; return Task.CompletedTask; }
     public Task<string?> PickSaveFileAsync(string suggestedName) => Task.FromResult(SavePath);
+    public string? OpenPath;
+    public Task<string?> PickOpenFileAsync() => Task.FromResult(OpenPath);
     public Task EditAsync(EditModel model) { OnEdit?.Invoke(model); return Task.CompletedTask; }
     public Task<bool> OpenRulesAsync(AppSettings settings, int tab) { RulesOpened++; return Task.FromResult(true); }
     public void ShowCompare(Flow a, Flow b) => Compared = (a, b);
@@ -622,5 +624,95 @@ public class UiTests
             Assert.True(vm.NoticeIsSuccess);
         }
         finally { MainViewModel.RestoreProxy = SystemProxy.Disable; }
+    }
+
+    [AvaloniaFact]
+    public async Task SessionCanBeSavedAndOpenedAgain()
+    {
+        var (w, vm, ui) = Open();
+        var path = Path.Combine(Path.GetTempPath(), "ts-session-" + Guid.NewGuid().ToString("N")[..6] + ".har");
+        ui.SavePath = path;
+        await vm.SaveHarCommand.ExecuteAsync(null);
+        Assert.True(File.Exists(path));
+
+        vm.ClearCommand.Execute(null);
+        Assert.Empty(vm.Flows);
+        vm.FilterText = "nothing-matches";
+        ui.OpenPath = path;
+        await vm.OpenSessionCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(4, vm.Flows.Count);                                       // the tunnel is not part of a HAR
+        Assert.Equal("", vm.FilterText);                                       // a leftover filter would hide what was opened
+        Assert.All(vm.Flows, f => Assert.Equal("Imported", f.Tag));
+        Assert.Equal("SampleClinic", vm.Flows[0].App);
+        Assert.Contains("Opened 4 requests", vm.Status);
+        Assert.True(vm.NoticeIsSuccess);
+        vm.SelectedFlow = vm.Flows[0];
+        Assert.NotEmpty(vm.ResponseTree);                                      // bodies came back
+        w.FindControl<TabControl>("Inspector")!.SelectedIndex = 6;
+        Assert.StartsWith("00000000  7b 22 64 61 74 61", vm.ResponseHexText);
+        Shot(w, "26-opened-session-hex");
+
+        ui.OpenPath = Path.Combine(Path.GetTempPath(), "ts-bad-" + Guid.NewGuid().ToString("N")[..6] + ".har");
+        File.WriteAllText(ui.OpenPath, "this is not json");
+        await vm.OpenSessionCommand.ExecuteAsync(null);
+        Assert.True(vm.NoticeIsError);
+        Assert.Equal(4, vm.Flows.Count);
+        ui.OpenPath = null;
+        await vm.OpenSessionCommand.ExecuteAsync(null);                        // cancelled picker: nothing happens
+        Assert.Equal(4, vm.Flows.Count);
+        w.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task MapRulesCanBeMadeFromARequestAndEdited()
+    {
+        var (_, vm, ui) = Open(false);
+        vm.SelectedFlow = vm.Flows[2];
+        await vm.MapLocalFromSelectedCommand.ExecuteAsync(null);
+        await vm.MapRemoteFromSelectedCommand.ExecuteAsync(null);
+        Assert.Equal(2, ui.RulesOpened);
+        Assert.Equal(2, vm.Settings.Maps.Count);
+        Assert.False(vm.Settings.Maps[0].IsRemote); Assert.Equal("/v2/orders/88", vm.Settings.Maps[0].UrlContains); Assert.Equal(500, vm.Settings.Maps[0].Status);
+        Assert.True(vm.Settings.Maps[1].IsRemote); Assert.Equal("api.example.com", vm.Settings.Maps[1].UrlContains);
+
+        var rvm = new RulesVm(vm.Settings, 3);
+        Assert.Equal(2, rvm.Maps.Count);
+        rvm.SelectedMap = rvm.Maps[1];
+        Assert.Contains("Enter the server", rvm.SelectedMap.Check);
+        rvm.SelectedMap.RemoteUrl = "http://localhost:3000";
+        Assert.Contains("http://localhost:3000/v2/orders?id=1", rvm.SelectedMap.Check);
+        rvm.Maps[0].LocalPath = "/no/such/file.json";
+        Assert.Contains("does not exist", rvm.Maps[0].Check);
+        rvm.AddMapLocalCommand.Execute(null);
+        rvm.DeleteMapCommand.Execute(null);
+        var win = new RulesWindow(rvm); win.Show(); Dispatcher.UIThread.RunJobs();
+        Shot(win, "27-map-rules");
+        win.Close();                                                           // closing commits
+        Assert.Equal("http://localhost:3000", vm.Settings.Maps[1].RemoteUrl);
+        vm.SaveSettings();
+        Assert.Contains("2 maps", vm.RulesSummary);
+        Assert.Equal(2, new SettingsStore().Load().Maps.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task CodeCanBeCopiedInEachLanguage()
+    {
+        var (w, vm, ui) = Open();
+        Assert.True(w.FindControl<Button>("CodeButton")!.IsVisible);
+        Assert.True(w.FindControl<Button>("OpenButton")!.IsVisible);
+        Assert.True(w.FindControl<Button>("MapsButton")!.IsVisible);
+        vm.SelectedFlow = vm.Flows[0];
+        foreach (var lang in vm.CodeLanguages)
+        {
+            await vm.CopyCodeCommand.ExecuteAsync(lang);
+            Assert.Contains("prod.example-clinic.test/services/get_invoice_numbers.php", ui.Clipboard);
+            Assert.Contains(lang + " code copied", vm.NoticeText);
+        }
+        vm.MaskSecrets = true;
+        await vm.CopyCodeCommand.ExecuteAsync("Python");
+        Assert.DoesNotContain(Samples.Jwt, ui.Clipboard);
+        vm.MaskSecrets = false;
+        w.Close();
     }
 }

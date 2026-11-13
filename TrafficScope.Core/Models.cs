@@ -32,6 +32,9 @@ public sealed class Flow
     public bool IsTunnel { get; set; }
     public bool Mocked { get; set; }
     public bool Edited { get; set; }
+    /// <summary>"Local" or "Remote" when a map rule answered or redirected this request; MappedTo says where.</summary>
+    public string Mapped { get; set; } = "";
+    public string MappedTo { get; set; } = "";
     public string Source { get; set; } = "";
     public event Action<Flow>? Changed;
     public void RaiseChanged() => Changed?.Invoke(this);

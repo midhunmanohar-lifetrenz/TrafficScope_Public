@@ -33,6 +33,7 @@ public sealed class ProxyEngine : IDisposable
     volatile bool _capturing;
     volatile MockRule[] _mocks = Array.Empty<MockRule>();
     volatile BreakpointRule[] _breakpoints = Array.Empty<BreakpointRule>();
+    volatile MapRule[] _maps = Array.Empty<MapRule>();
     volatile string[] _decryptOnly = Array.Empty<string>();
     volatile int _delayMs;
 
@@ -105,6 +106,7 @@ public sealed class ProxyEngine : IDisposable
     {
         _mocks = s.Mocks.Where(m => m.Enabled).ToArray();
         _breakpoints = s.Breakpoints.Where(b => b.Enabled).ToArray();
+        _maps = (s.Maps ?? new()).Where(m => m.Enabled).ToArray();
         _decryptOnly = s.DecryptOnlyHosts.Where(h => !string.IsNullOrWhiteSpace(h)).ToArray();
         _delayMs = Math.Max(0, s.DelayMs);
     }
@@ -215,6 +217,42 @@ public sealed class ProxyEngine : IDisposable
         }
 
         var mock = _mocks.FirstOrDefault(m => m.Matches(flow.Method, flow.Url));
+        var map = mock != null ? null : _maps.FirstOrDefault(m => m.Matches(flow.Method, flow.Url));
+        if (map is { IsRemote: false })
+        {
+            // Map Local: answer from a file; the server is not called.
+            var file = map.LocalPath.Trim();
+            flow.Mapped = "Local"; flow.MappedTo = file; flow.Mocked = true;
+            byte[] bytes; int status; string type;
+            try
+            {
+                var info = new FileInfo(file);
+                if (!info.Exists) throw new FileNotFoundException("File not found");
+                if (info.Length > MaxBody) throw new IOException($"File is larger than {MaxBody / (1024 * 1024)} MB");
+                bytes = await File.ReadAllBytesAsync(file); status = map.Status is >= 100 and <= 599 ? map.Status : 200; type = MapRule.ContentTypeFor(file);
+            }
+            catch (Exception ex)
+            {
+                bytes = System.Text.Encoding.UTF8.GetBytes($"TrafficScope Map Local could not read {file}: {ex.Message}"); status = 502; type = "text/plain; charset=utf-8";
+            }
+            e.GenericResponse(bytes, (HttpStatusCode)status, new Dictionary<string, HttpHeader> { ["Content-Type"] = new HttpHeader("Content-Type", type) });
+            flow.StatusCode = status; flow.StatusDescription = ((HttpStatusCode)status).ToString();
+            flow.Duration = DateTime.Now - flow.StartedAt;
+            flow.ResponseHeaders = new() { new("Content-Type", type) };
+            flow.ResponseBody = bytes;
+            FlowUpdated?.Invoke(flow);
+            flow.RaiseChanged();
+            return;
+        }
+        if (map is { IsRemote: true })
+        {
+            // Map Remote: same request, different server. The list keeps showing the address the app asked for.
+            var target = MapRule.Remap(flow.Url, map.RemoteUrl);
+            req.Url = target;
+            req.Host = req.RequestUri.Authority;
+            flow.Mapped = "Remote"; flow.MappedTo = target;
+            FlowUpdated?.Invoke(flow);
+        }
         if (mock != null)
         {
             var headers = new Dictionary<string, HttpHeader> { ["Content-Type"] = new HttpHeader("Content-Type", mock.ContentType) };

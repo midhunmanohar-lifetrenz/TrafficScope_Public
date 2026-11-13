@@ -33,6 +33,16 @@ public partial class MainWindow : Window, IUiServices
         return file?.TryGetLocalPath();
     }
 
+    public async Task<string?> PickOpenFileAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Open a saved session or HAR file", AllowMultiple = false,
+            FileTypeFilter = new[] { new FilePickerFileType("HTTP Archive") { Patterns = new[] { "*.har", "*.json" } }, FilePickerFileTypes.All },
+        });
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
+
     public async Task EditAsync(EditModel model) => await new EditWindow(model).ShowDialog(this);
 
     public async Task<bool> OpenRulesAsync(AppSettings settings, int tab)

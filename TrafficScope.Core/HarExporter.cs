@@ -22,7 +22,11 @@ public static class HarExporter
                 ["headersSize"] = -1, ["bodySize"] = f.RequestBody?.Length ?? 0,
             };
             if (f.RequestBody is { Length: > 0 } rb)
-                req["postData"] = new JsonObject { ["mimeType"] = f.RequestContentType ?? "", ["text"] = BodyString(f.RequestContentType, rb, out _) };
+            {
+                var post = new JsonObject { ["mimeType"] = f.RequestContentType ?? "", ["text"] = BodyString(f.RequestContentType, rb, out var reqB64) };
+                if (reqB64) post["_encoding"] = "base64";
+                req["postData"] = post;
+            }
 
             var content = new JsonObject { ["size"] = f.ResponseBody?.Length ?? 0, ["mimeType"] = f.ResponseContentType ?? "" };
             if (f.ResponseBody is { Length: > 0 } sb)
@@ -46,6 +50,10 @@ public static class HarExporter
                 ["timings"] = new JsonObject { ["send"] = 0, ["wait"] = ms, ["receive"] = 0 },
                 ["_app"] = f.AppName,
             });
+            var entry = (JsonObject)entries[^1]!;
+            if (f.Mocked) entry["_mocked"] = true;
+            if (f.Edited) entry["_edited"] = true;
+            if (f.Error != null) ((JsonObject)entry["response"]!)["_error"] = f.Error;
         }
         var har = new JsonObject
         {

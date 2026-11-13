@@ -14,6 +14,8 @@ public partial class RulesVm : ObservableObject
         SelectedTab = tab;
         foreach (var m in s.Mocks) Mocks.Add(new MockRuleVm(m));
         foreach (var b in s.Breakpoints) Breakpoints.Add(new BreakpointRuleVm(b));
+        foreach (var m in s.Maps ?? new()) Maps.Add(new MapRuleVm(m));
+        SelectedMap = Maps.LastOrDefault();
         SelectedMock = Mocks.LastOrDefault();
         SelectedBreakpoint = Breakpoints.LastOrDefault();
         _decryptOnlyText = string.Join("\n", s.DecryptOnlyHosts);
@@ -136,6 +138,13 @@ public partial class RulesVm : ObservableObject
 
     public ObservableCollection<MockRuleVm> Mocks { get; } = new();
     public ObservableCollection<BreakpointRuleVm> Breakpoints { get; } = new();
+    public ObservableCollection<MapRuleVm> Maps { get; } = new();
+    [ObservableProperty] MapRuleVm? _selectedMap;
+    public bool HasMap => SelectedMap != null;
+    partial void OnSelectedMapChanged(MapRuleVm? value) => OnPropertyChanged(nameof(HasMap));
+    [RelayCommand] void AddMapLocal() { var vm = new MapRuleVm(new MapRule { Name = "Map Local", UrlContains = "/api/" }); Maps.Add(vm); SelectedMap = vm; }
+    [RelayCommand] void AddMapRemote() { var vm = new MapRuleVm(new MapRule { Name = "Map Remote", IsRemote = true, UrlContains = "/api/" }); Maps.Add(vm); SelectedMap = vm; }
+    [RelayCommand] void DeleteMap() { if (SelectedMap != null) { Maps.Remove(SelectedMap); SelectedMap = Maps.LastOrDefault(); } }
     public string[] Themes { get; } = { "System", "Light", "Dark" };
     public string[] DelayPresets { get; } = { "0", "300", "1000", "3000" };
 
@@ -163,6 +172,7 @@ public partial class RulesVm : ObservableObject
     {
         _s.Mocks = Mocks.Select(m => m.Rule).ToList();
         _s.Breakpoints = Breakpoints.Select(b => b.Rule).ToList();
+        _s.Maps = Maps.Select(m => m.Rule).ToList();
         _s.DecryptOnlyHosts = DecryptOnlyText.Split('\n', ',').Select(h => h.Trim()).Where(h => h.Length > 0).Distinct().ToList();
         _s.DelayMs = int.TryParse(DelayText, out var d) ? Math.Clamp(d, 0, 60000) : 0;
         _s.MaskSecrets = MaskSecrets;

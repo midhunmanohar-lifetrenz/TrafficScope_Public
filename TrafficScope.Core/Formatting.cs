@@ -69,6 +69,28 @@ public static class Formatting
         return sb.ToString();
     }
 
+    /// <summary>Classic hex view: offset, 16 bytes in hex, then the printable characters.</summary>
+    public static string HexDump(byte[]? data, int maxBytes = 64 * 1024)
+    {
+        if (data is not { Length: > 0 }) return "";
+        var n = Math.Min(data.Length, maxBytes);
+        var sb = new System.Text.StringBuilder(n * 4 + 64);
+        for (var i = 0; i < n; i += 16)
+        {
+            sb.Append(i.ToString("x8")).Append("  ");
+            for (var j = 0; j < 16; j++)
+            {
+                sb.Append(i + j < n ? data[i + j].ToString("x2") : "  ").Append(' ');
+                if (j == 7) sb.Append(' ');
+            }
+            sb.Append(' ');
+            for (var j = 0; j < 16 && i + j < n; j++) { var c = (char)data[i + j]; sb.Append(c is >= ' ' and <= '~' ? c : '.'); }
+            sb.Append('\n');
+        }
+        if (data.Length > n) sb.Append($"… {Size(data.Length - n)} more not shown (first {Size(n)} of {Size(data.Length)})\n");
+        return sb.ToString();
+    }
+
     public static string Size(long? bytes) => bytes switch
     {
         null => "",

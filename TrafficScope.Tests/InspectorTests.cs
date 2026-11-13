@@ -188,3 +188,143 @@ public class CertTrustTests
         Assert.Equal("/tmp/ca.cer", args[^1]);
     }
 }
+
+public class RoadmapFeatureTests
+{
+    static Flow Sample()
+    {
+        var f = new Flow { Id = 7, AppName = "SampleClinic", Method = "POST", Url = "https://api.example.com/v2/orders?id=1", Host = "api.example.com", Path = "/v2/orders?id=1",
+            StatusCode = 201, StatusDescription = "Created", Duration = TimeSpan.FromMilliseconds(120) };
+        f.RequestHeaders.Add(new("Host", "api.example.com")); f.RequestHeaders.Add(new("Content-Type", "application/json"));
+        f.RequestHeaders.Add(new("Authorization", "Bearer secret-token")); f.RequestHeaders.Add(new("X-Note", "say \"hi\""));
+        f.RequestBody = System.Text.Encoding.UTF8.GetBytes("{\"a\":1,\n\"b\":\"x\"}");
+        f.ResponseHeaders.Add(new("Content-Type", "application/json"));
+        f.ResponseBody = System.Text.Encoding.UTF8.GetBytes("{\"ok\":true}");
+        return f;
+    }
+
+    [Fact]
+    public void SavedSessionOpensBackWithEverything()
+    {
+        var a = Sample(); a.Edited = true;
+        var bin = new Flow { Id = 8, AppName = "SampleClinic", Method = "GET", Url = "https://cdn.example.com/logo.png", Host = "cdn.example.com", Path = "/logo.png", StatusCode = 200 };
+        bin.ResponseHeaders.Add(new("Content-Type", "image/png")); bin.ResponseBody = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0, 255, 1 };
+        var failed = new Flow { Id = 9, AppName = "SampleClinic", Method = "GET", Url = "https://down.example.com/x", Host = "down.example.com", Path = "/x", Error = "Connection refused" };
+
+        long id = 100;
+        var back = HarImporter.Parse(HarExporter.Build(new[] { a, bin, failed }, false), () => ++id);
+
+        Assert.Equal(3, back.Count);
+        Assert.Equal(new long[] { 101, 102, 103 }, back.Select(f => f.Id));
+        var r = back[0];
+        Assert.Equal("POST", r.Method); Assert.Equal(a.Url, r.Url); Assert.Equal("api.example.com", r.Host); Assert.Equal("/v2/orders?id=1", r.Path);
+        Assert.Equal(201, r.StatusCode); Assert.Equal("SampleClinic", r.AppName); Assert.Equal("Imported", r.Source); Assert.True(r.Edited);
+        Assert.Equal(a.RequestBody, r.RequestBody); Assert.Equal(a.ResponseBody, r.ResponseBody);
+        Assert.Equal("Bearer secret-token", Flow.Header(r.RequestHeaders, "Authorization"));
+        Assert.Equal(120, r.Duration!.Value.TotalMilliseconds);
+        Assert.Equal(bin.ResponseBody, back[1].ResponseBody);                 // binary survives (base64)
+        Assert.Null(back[2].StatusCode); Assert.Equal("Connection refused", back[2].Error);
+    }
+
+    [Fact]
+    public void OpensAHarWrittenByABrowser()
+    {
+        const string har = """
+        {"log":{"version":"1.2","creator":{"name":"WebInspector","version":"537.36"},"entries":[
+          {"startedDateTime":"2026-11-13T05:00:00.000Z","time":42.5,
+           "request":{"method":"get","url":"https://example.com/a?x=1","httpVersion":"h2","headers":[{"name":":authority","value":"example.com"},{"name":"accept","value":"*/*"}]},
+           "response":{"status":200,"statusText":"","headers":[{"name":"content-type","value":"text/plain"}],"content":{"size":2,"mimeType":"text/plain","text":"aGk=","encoding":"base64"}}},
+          {"request":{"method":"GET","url":"not a url","headers":[]},"response":{"status":200}},
+          "junk", {"request":"junk"}, {"request":{"method":"GET","url":"https://example.com/b","headers":"junk","postData":"junk"},"response":"junk"}
+        ]}}
+        """;
+        long id = 0;
+        var flows = HarImporter.Parse(har, () => ++id);
+        Assert.Equal(2, flows.Count);                                           // broken entries are skipped, odd ones tolerated
+        Assert.Equal("https://example.com/b", flows[1].Url); Assert.NotNull(flows[1].Error);
+        var f = flows[0];
+        Assert.Equal("GET", f.Method); Assert.Equal("Imported", f.AppName); Assert.Equal("h2", f.HttpVersion);
+        Assert.Equal("hi", System.Text.Encoding.UTF8.GetString(f.ResponseBody!));
+        Assert.DoesNotContain(f.RequestHeaders, h => h.Key.StartsWith(':'));
+    }
+
+    [Theory]
+    [InlineData("{\"hello\":1}")]
+    [InlineData("[]")]
+    [InlineData("{\"log\":[]}")]
+    [InlineData("{\"log\":{\"entries\":{}}}")]
+    public void FilesThatAreNotHarAreRefused(string json) => Assert.Throws<FormatException>(() => HarImporter.Parse(json, () => 1));
+
+    [Theory]
+    [InlineData("https://api.example.com/v2/orders?id=1", "https://staging.example.com", "https://staging.example.com/v2/orders?id=1")]
+    [InlineData("https://api.example.com/v2/orders?id=1", "http://localhost:3000/", "http://localhost:3000/v2/orders?id=1")]
+    [InlineData("https://api.example.com:8443/a", "https://staging.example.com/base/", "https://staging.example.com/base/a")]
+    public void MapRemoteKeepsPathAndQuery(string url, string target, string expected) => Assert.Equal(expected, MapRule.Remap(url, target));
+
+    [Fact]
+    public void MapRulesOnlyMatchWhenTheyHaveAUsableTarget()
+    {
+        Assert.True(new MapRule { UrlContains = "/orders", LocalPath = "/tmp/a.json" }.Matches("GET", "https://x.test/orders"));
+        Assert.False(new MapRule { UrlContains = "/orders" }.Matches("GET", "https://x.test/orders"));
+        Assert.False(new MapRule { UrlContains = "/orders", IsRemote = true, RemoteUrl = "staging" }.Matches("GET", "https://x.test/orders"));
+        Assert.False(new MapRule { UrlContains = "/orders", IsRemote = true, RemoteUrl = "ftp://x.test" }.Matches("GET", "https://x.test/orders"));
+        Assert.True(new MapRule { UrlContains = "/orders", IsRemote = true, RemoteUrl = "http://localhost:3000", Method = "POST" }.Matches("post", "https://x.test/orders"));
+        Assert.False(new MapRule { UrlContains = "/orders", LocalPath = "/tmp/a.json", Enabled = false }.Matches("GET", "https://x.test/orders"));
+        Assert.Equal("application/json", MapRule.ContentTypeFor("/tmp/A.JSON"));
+        Assert.Equal("application/octet-stream", MapRule.ContentTypeFor("/tmp/data"));
+    }
+
+    [Fact]
+    public void OldSettingsFilesWithoutMapsStillLoad()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "ts-set-" + Guid.NewGuid().ToString("N")[..6]); Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "settings.json"), "{\"Theme\":\"Dark\",\"Mocks\":[],\"Breakpoints\":[]}");
+        var s = new SettingsStore(dir).Load();
+        Assert.Equal("Dark", s.Theme); Assert.NotNull(s.Maps); Assert.Empty(s.Maps);
+        s.Maps.Add(new MapRule { UrlContains = "/a", IsRemote = true, RemoteUrl = "http://localhost:1" });
+        new SettingsStore(dir).Save(s);
+        Assert.True(Assert.Single(new SettingsStore(dir).Load().Maps).IsRemote);
+    }
+
+    [Fact]
+    public void HexDumpShowsOffsetsBytesAndText()
+    {
+        var dump = Formatting.HexDump(System.Text.Encoding.ASCII.GetBytes("Hello, TrafficScope!\n"));
+        var lines = dump.TrimEnd('\n').Split('\n');
+        Assert.Equal(2, lines.Length);
+        Assert.StartsWith("00000000  48 65 6c 6c 6f 2c 20 54  72 61 66 66 69 63 53 63  Hello, TrafficSc", lines[0]);
+        Assert.StartsWith("00000010  6f 70 65 21 0a", lines[1]);
+        Assert.EndsWith("ope!.", lines[1]);
+        Assert.Equal("", Formatting.HexDump(null));
+        Assert.Contains("more not shown", Formatting.HexDump(new byte[100], 32));
+    }
+
+    [Theory]
+    [InlineData("Python", "requests.request(\"POST\", url, headers=headers, data=data.encode(\"utf-8\"))")]
+    [InlineData("JavaScript", "await fetch(\"https://api.example.com/v2/orders?id=1\", {")]
+    [InlineData("C#", "new HttpRequestMessage(new HttpMethod(\"POST\"), \"https://api.example.com/v2/orders?id=1\")")]
+    public void CodeIsGeneratedAndEscaped(string language, string expected)
+    {
+        var code = CodeGen.Build(language, Sample(), false);
+        Assert.Contains(expected, code);
+        Assert.Contains("\"say \\\"hi\\\"\"", code);                    // quotes inside a header value are escaped
+        Assert.Contains("{\\\"a\\\":1,\\n", code);                       // body newline is escaped, not a raw line break
+        Assert.Contains("Bearer secret-token", code);
+        Assert.DoesNotContain("\"Host\"", code);
+        Assert.DoesNotContain("secret-token", CodeGen.Build(language, Sample(), true));   // masking applies
+    }
+
+    [Fact]
+    public void GeneratedPythonRunsAsValidSyntax()
+    {
+        if (!File.Exists("/usr/bin/python3")) return;
+        var file = Path.Combine(Path.GetTempPath(), "ts-code-" + Guid.NewGuid().ToString("N")[..6] + ".py");
+        File.WriteAllText(file, CodeGen.Build("Python", Sample(), false));
+        var psi = new System.Diagnostics.ProcessStartInfo("/usr/bin/python3") { RedirectStandardError = true };
+        psi.ArgumentList.Add("-c"); psi.ArgumentList.Add("import ast,sys; ast.parse(open(sys.argv[1]).read())"); psi.ArgumentList.Add(file);
+        using var p = System.Diagnostics.Process.Start(psi)!;
+        var err = p.StandardError.ReadToEnd(); p.WaitForExit();
+        File.Delete(file);
+        Assert.True(p.ExitCode == 0, err);
+    }
+}

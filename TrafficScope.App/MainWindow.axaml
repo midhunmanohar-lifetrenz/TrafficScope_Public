@@ -57,6 +57,7 @@
         <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
           <Button x:Name="MocksButton" Classes="bar" Command="{Binding OpenMocksCommand}" ToolTip.Tip="Mock responses"><Path Data="{StaticResource MockIcon}" /></Button>
           <Button x:Name="BreakpointsButton" Classes="bar" Command="{Binding OpenBreakpointsCommand}" ToolTip.Tip="Breakpoints"><Path Data="{StaticResource BreakIcon}" /></Button>
+          <Button x:Name="MapsButton" Classes="bar" Command="{Binding OpenMapsCommand}" ToolTip.Tip="Map Local and Map Remote: answer from a file, or send to another server"><Path Data="{StaticResource MapIcon}" /></Button>
           <Button x:Name="SettingsButton" Classes="bar" Command="{Binding OpenSettingsCommand}" ToolTip.Tip="Settings: decrypt-only hosts, slow network, theme, Postman"><Path Data="{StaticResource SettingsIcon}" /></Button>
           <Button x:Name="ResetButton" Classes="bar" Command="{Binding ResetAllCommand}" ToolTip.Tip="Reset all (keeps favourites and selected apps)"><Path Data="{StaticResource ResetIcon}" /></Button>
         </StackPanel>
@@ -139,7 +140,8 @@
             <Button Classes="tool" Content="Replay" Command="{Binding ReplayCommand}" ToolTip.Tip="Send the selected request again" />
             <Button Classes="tool" Content="Edit and resend" Command="{Binding EditAndResendCommand}" />
             <Button Classes="tool" Content="Compare" Command="{Binding CompareCommand}" ToolTip.Tip="Select two requests with Ctrl/Cmd+click, then compare" />
-            <Button Classes="tool" Content="Save" Command="{Binding SaveHarCommand}" ToolTip.Tip="Save all requests as a .har file" />
+            <Button x:Name="OpenButton" Classes="tool" Content="Open" Command="{Binding OpenSessionCommand}" ToolTip.Tip="Open a saved session or a .har file from a browser, Proxyman, Fiddler or Charles" />
+            <Button Classes="tool" Content="Save" Command="{Binding SaveHarCommand}" ToolTip.Tip="Save all requests as a .har file you can open again or attach to a bug report" />
           </StackPanel>
           <CheckBox Grid.Column="3" IsChecked="{Binding ShowTunnels}" Content="{Binding TunnelText}" FontSize="12"
                     ToolTip.Tip="Connections from your apps to hosts outside your decrypt-only list" />
@@ -152,6 +154,9 @@
             <ContextMenu>
               <MenuItem Header="Copy URL" Command="{Binding CopyUrlCommand}" />
               <MenuItem Header="Copy as cURL" Command="{Binding CopyCurlCommand}" />
+              <MenuItem Header="Copy as Python" Command="{Binding CopyCodeCommand}" CommandParameter="Python" />
+              <MenuItem Header="Copy as JavaScript" Command="{Binding CopyCodeCommand}" CommandParameter="JavaScript" />
+              <MenuItem Header="Copy as C#" Command="{Binding CopyCodeCommand}" CommandParameter="C#" />
               <MenuItem Header="Send to Postman" Command="{Binding SendToPostmanCommand}" />
               <Separator />
               <MenuItem Header="Replay" Command="{Binding ReplayCommand}" />
@@ -159,6 +164,8 @@
               <MenuItem Header="Compare selected two" Command="{Binding CompareCommand}" />
               <Separator />
               <MenuItem Header="Mock this response…" Command="{Binding MockFromSelectedCommand}" />
+              <MenuItem Header="Map Local (answer from a file)…" Command="{Binding MapLocalFromSelectedCommand}" />
+              <MenuItem Header="Map Remote (send to another server)…" Command="{Binding MapRemoteFromSelectedCommand}" />
               <MenuItem Header="Add breakpoint for this URL…" Command="{Binding BreakpointFromSelectedCommand}" />
             </ContextMenu>
           </DataGrid.ContextMenu>
@@ -335,6 +342,14 @@
                 <Border Grid.Row="1" Grid.Column="2" Classes="pane"><TextBox Classes="mono" Text="{Binding ResponseText, Mode=OneWay}" /></Border>
               </Grid>
             </TabItem>
+            <TabItem Header="Hex">
+              <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Request body" Classes="caption" Margin="2,5,0,9" />
+                <Border Grid.Row="1" Grid.Column="0" Classes="pane"><TextBox Classes="mono" TextWrapping="NoWrap" Text="{Binding RequestHexText, Mode=OneWay}" /></Border>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="Response body" Classes="caption" Margin="2,5,0,9" />
+                <Border Grid.Row="1" Grid.Column="2" Classes="pane"><TextBox Classes="mono" TextWrapping="NoWrap" Text="{Binding ResponseHexText, Mode=OneWay}" /></Border>
+              </Grid>
+            </TabItem>
           </TabControl>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Spacing="2" Margin="0,0,0,0">
             <Button Classes="tool" Content="{Binding TreeToggleText}" Command="{Binding ToggleTreeCommand}" ToolTip.Tip="Switch JSON between tree and raw text" FontSize="12" />
@@ -342,6 +357,15 @@
             <Button Classes="tool" Content="Collapse all" Command="{Binding CollapseAllCommand}" FontSize="12" />
             <Rectangle Width="1" Height="18" Fill="{DynamicResource TsBorder}" Margin="4,0" />
             <Button Classes="tool" Content="Copy cURL" Command="{Binding CopyCurlCommand}" FontSize="12" />
+            <Button x:Name="CodeButton" Classes="tool" Content="Code ▾" FontSize="12" ToolTip.Tip="Copy this request as code">
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedRight">
+                  <MenuItem Header="Python (requests)" Command="{Binding CopyCodeCommand}" CommandParameter="Python" />
+                  <MenuItem Header="JavaScript (fetch)" Command="{Binding CopyCodeCommand}" CommandParameter="JavaScript" />
+                  <MenuItem Header="C# (HttpClient)" Command="{Binding CopyCodeCommand}" CommandParameter="C#" />
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
             <Button Classes="primary" Content="Send to Postman" Command="{Binding SendToPostmanCommand}" FontSize="12" Padding="14,5" Margin="4,0,0,0"
                     ToolTip.Tip="Save this request to your Postman workspace (Settings > Postman)" />
           </StackPanel>

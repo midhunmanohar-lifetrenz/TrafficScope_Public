@@ -27,6 +27,7 @@ public interface IUiServices
 {
     Task SetClipboardAsync(string text);
     Task<string?> PickSaveFileAsync(string suggestedName);
+    Task<string?> PickOpenFileAsync();
     Task EditAsync(EditModel model);
     Task<bool> OpenRulesAsync(AppSettings settings, int tab);
     void ShowCompare(Flow a, Flow b);
@@ -81,6 +82,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] string _status = "Pick one or more apps, then press Record.";
     [ObservableProperty] string _toast = "";
     [ObservableProperty] FlowVm? _selectedFlow;
+    [ObservableProperty] string _requestHexText = "";
+    [ObservableProperty] string _responseHexText = "";
     [ObservableProperty] string _requestText = "";
     [ObservableProperty] string _responseText = "";
     [ObservableProperty] string _requestBodyText = "";
@@ -131,6 +134,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var m = Settings.Mocks.Count(x => x.Enabled); var b = Settings.Breakpoints.Count(x => x.Enabled);
             if (m > 0) parts.Add($"{m} mock{(m == 1 ? "" : "s")}");
             if (b > 0) parts.Add($"{b} breakpoint{(b == 1 ? "" : "s")}");
+            var maps = Settings.Maps.Count(x => x.Enabled);
+            if (maps > 0) parts.Add($"{maps} map{(maps == 1 ? "" : "s")}");
             if (Settings.DelayMs > 0) parts.Add($"+{Settings.DelayMs} ms delay");
             if (Settings.DecryptOnlyHosts.Count > 0) parts.Add("decrypt-only list");
             return parts.Count == 0 ? "" : "Active: " + string.Join(", ", parts);
@@ -147,7 +152,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         if (Ui == null) return;
         var ok = await Ui.ConfirmAsync("Reset TrafficScope?",
-            "This clears the recorded requests, mocks, breakpoints, the decrypt-only list, slow network, theme and the other settings, " +
+            "This clears the recorded requests, mocks, breakpoints, map rules, the decrypt-only list, slow network, theme and the other settings, " +
             "and disconnects Postman.\n\nYour favourite apps and the apps you switched on are kept. The certificate stays installed.",
             "Reset all");
         if (!ok) return;
@@ -155,7 +160,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         FilterText = ""; FilterKind = FlowFilterKind.All;
         var d = new AppSettings();
         Settings.Theme = d.Theme; Settings.MaskSecrets = d.MaskSecrets; Settings.ShowTunnels = d.ShowTunnels; Settings.DelayMs = d.DelayMs;
-        Settings.DecryptOnlyHosts = d.DecryptOnlyHosts; Settings.Mocks = d.Mocks; Settings.Breakpoints = d.Breakpoints;
+        Settings.DecryptOnlyHosts = d.DecryptOnlyHosts; Settings.Mocks = d.Mocks; Settings.Breakpoints = d.Breakpoints; Settings.Maps = d.Maps;
         Settings.PostmanWorkspaceId = d.PostmanWorkspaceId; Settings.PostmanWorkspaceName = d.PostmanWorkspaceName;
         Settings.PostmanCollection = d.PostmanCollection; Settings.PostmanUser = d.PostmanUser;
         try { PostmanSetup.DeleteKey(); } catch { }
@@ -545,6 +550,55 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (path == null) return;
         await File.WriteAllTextAsync(path, HarExporter.Build(flows, M));
         await ShowToast($"Saved {flows.Count} requests" + (M ? " (secrets masked)" : ""));
+    }
+
+    /// <summary>Opens a saved session or any HAR file and adds its requests to the list.</summary>
+    [RelayCommand]
+    async Task OpenSession()
+    {
+        if (Ui == null) return;
+        var path = await Ui.PickOpenFileAsync();
+        if (path == null) return;
+        try
+        {
+            var info = new FileInfo(path);
+            if (info.Length > 300L * 1024 * 1024) { Fail("That file is larger than 300 MB, which is too big to open."); return; }
+            var flows = await Task.Run(() => HarImporter.Parse(File.ReadAllText(path), _engine.NextId));
+            if (flows.Count == 0) { Say("That file has no requests in it.", NoticeKind.Warning); return; }
+            var first = _all.Count;
+            foreach (var f in flows) AddFlow(f);
+            if (FilterText.Length > 0 || FilterKind != FlowFilterKind.All) ClearFilters();
+            SelectedFlow = _all.Count > 0 ? _all[Math.Min(Math.Max(0, first - DroppedFlows), _all.Count - 1)] : null;
+            Say($"Opened {flows.Count} request{(flows.Count == 1 ? "" : "s")} from {Path.GetFileName(path)}."
+                + (flows.Count > MaxFlows ? $" Only the latest {MaxFlows} are kept." : ""), NoticeKind.Success);
+        }
+        catch (Exception ex) when (ex is FormatException or System.Text.Json.JsonException)
+        { Fail("Could not open that file: it is not a valid HAR file. " + (ex is FormatException ? ex.Message : "")); }
+        catch (Exception ex) { Fail("Could not open that file. " + ex.Message); }
+    }
+
+    public string[] CodeLanguages => CodeGen.Languages;
+    [RelayCommand]
+    Task CopyCode(string language) => Sel == null || Sel.IsTunnel ? ShowToast("Select a request first.")
+        : Copy(CodeGen.Build(language, Sel, M), $"{language} code copied" + (M ? " (secrets masked)" : ""));
+
+    [RelayCommand] Task OpenMaps() => OpenRules(3);
+
+    [RelayCommand]
+    async Task MapLocalFromSelected()
+    {
+        if (Sel == null || Ui == null || Sel.IsTunnel) return;
+        var path = Sel.Path.Split('?')[0];
+        Settings.Maps.Add(new MapRule { Name = "Map Local " + path, Method = Sel.Method, UrlContains = path, Status = Sel.StatusCode is >= 100 and <= 599 ? Sel.StatusCode.Value : 200 });
+        await OpenRules(3);
+    }
+
+    [RelayCommand]
+    async Task MapRemoteFromSelected()
+    {
+        if (Sel == null || Ui == null || Sel.IsTunnel) return;
+        Settings.Maps.Add(new MapRule { Name = "Map Remote " + Sel.Host, IsRemote = true, UrlContains = Sel.Host });
+        await OpenRules(3);
     }
 
     // ---------- rules ----------

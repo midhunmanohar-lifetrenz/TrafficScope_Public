@@ -35,6 +35,46 @@ public sealed class BreakpointRule
         && (string.IsNullOrEmpty(Method) || Method.Equals(method, StringComparison.OrdinalIgnoreCase));
 }
 
+/// <summary>
+/// Map Local answers a matching request from a file on this computer. Map Remote sends it to a
+/// different server (for example staging or localhost) and returns that server's answer.
+/// </summary>
+public sealed class MapRule
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public bool Enabled { get; set; } = true;
+    public string Name { get; set; } = "New map";
+    public bool IsRemote { get; set; }                 // false = Map Local
+    public string Method { get; set; } = "";          // empty = any
+    public string UrlContains { get; set; } = "";
+    public string LocalPath { get; set; } = "";       // Map Local: file to answer with
+    public string RemoteUrl { get; set; } = "";       // Map Remote: new origin, e.g. https://staging.example.com
+    public int Status { get; set; } = 200;             // Map Local only
+
+    public bool Matches(string method, string url) =>
+        Enabled && !string.IsNullOrWhiteSpace(UrlContains)
+        && url.Contains(UrlContains, StringComparison.OrdinalIgnoreCase)
+        && (string.IsNullOrEmpty(Method) || Method.Equals(method, StringComparison.OrdinalIgnoreCase))
+        && (IsRemote ? Uri.TryCreate(RemoteUrl.Trim(), UriKind.Absolute, out var u) && u.Scheme is "http" or "https" : !string.IsNullOrWhiteSpace(LocalPath));
+
+    /// <summary>The request URL moved onto the target origin; a path on the target is put in front of the original path.</summary>
+    public static string Remap(string url, string target)
+    {
+        var from = new Uri(url); var to = new Uri(target.Trim());
+        var prefix = to.AbsolutePath.TrimEnd('/');
+        return new UriBuilder(to.Scheme, to.Host, to.IsDefaultPort ? -1 : to.Port).Uri.GetLeftPart(UriPartial.Authority) + prefix + from.PathAndQuery;
+    }
+
+    public static string ContentTypeFor(string path) => System.IO.Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".json" => "application/json", ".html" or ".htm" => "text/html; charset=utf-8", ".xml" => "application/xml",
+        ".js" or ".mjs" => "text/javascript", ".css" => "text/css", ".txt" or ".log" or ".csv" => "text/plain; charset=utf-8",
+        ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".gif" => "image/gif", ".svg" => "image/svg+xml", ".webp" => "image/webp",
+        ".pdf" => "application/pdf", ".zip" => "application/zip",
+        _ => "application/octet-stream",
+    };
+}
+
 public sealed class AppSettings
 {
     public string Theme { get; set; } = "System";       // System, Light, Dark
@@ -48,6 +88,7 @@ public sealed class AppSettings
     public string PostmanUser { get; set; } = "";
     public List<MockRule> Mocks { get; set; } = new();
     public List<BreakpointRule> Breakpoints { get; set; } = new();
+    public List<MapRule> Maps { get; set; } = new();
 }
 
 public sealed class SettingsStore

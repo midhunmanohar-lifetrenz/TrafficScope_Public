@@ -19,9 +19,12 @@ public partial class MainViewModel
         ResponseImage = null; JwtText = "";
         if (f == null)
         {
+            RequestHexText = ResponseHexText = "";
             RequestText = ResponseText = RequestBodyText = ResponseBodyText = RequestHeadersText = ResponseHeadersText = "";
             NotifyInspector(); return;
         }
+        RequestHexText = Formatting.HexDump(f.RequestBody) is { Length: > 0 } rh ? rh : f.RequestBodyNote ?? "No request body";
+        ResponseHexText = Formatting.HexDump(f.ResponseBody) is { Length: > 0 } sh ? sh : f.ResponseBodyNote ?? "No response body";
         RequestText = Formatting.RawRequest(f);
         ResponseText = Formatting.RawResponse(f);
         RequestBodyText = f.RequestBodyNote ?? (f.RequestBody is not { Length: > 0 } ? "No request body"
@@ -59,7 +62,9 @@ public partial class MainViewModel
         TimingRows.Add(new("Protocol", f.HttpVersion));
         TimingRows.Add(new("App", f.Process != null ? $"{f.AppName} (pid {f.Process.Pid})" : f.AppName));
         if (f.Process != null) TimingRows.Add(new("Executable", f.Process.Path));
-        if (f.Mocked) TimingRows.Add(new("Note", "Answered by a mock rule; the server was not called."));
+        if (f.Mapped == "Local") TimingRows.Add(new("Map Local", "Answered from " + f.MappedTo + "; the server was not called."));
+        if (f.Mapped == "Remote") TimingRows.Add(new("Map Remote", "Sent to " + f.MappedTo));
+        if (f.Mocked && f.Mapped.Length == 0) TimingRows.Add(new("Note", "Answered by a mock rule; the server was not called."));
         if (f.Edited) TimingRows.Add(new("Note", "Changed at a breakpoint."));
         if (Settings.DelayMs > 0) TimingRows.Add(new("Slow network", $"+{Settings.DelayMs} ms added per request"));
         NotifyInspector();

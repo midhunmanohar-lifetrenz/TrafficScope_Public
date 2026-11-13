@@ -18,8 +18,8 @@ Version, company and product name live in `Directory.Build.props`.
 | List | Method badge, status dot (red for errors), host and path, tags (Mock, Edited, Replay, Resent, Tunnel), app, type, size, time. Filter chips: All, Errors, JSON, Images, Slow > 1 s. Search URL/app/status/body. |
 | Inspector | Body (JSON tree, Expand/Collapse all, Raw toggle, image preview, decoded form), Headers (with JWT decode), Params (query + form), Cookies, Timing, Raw. Small copy icon on every pane. |
 | Postman | Tools > Settings > Postman: paste your API key once (stored in macOS Keychain / Windows DPAPI), pick a workspace and collection. **Send to Postman** saves the request (method, URL, headers, JSON/form body) into that collection via the Postman API and opens Postman; open it there and press Send. Respects "mask secrets". |
-| Actions | Copy cURL, Replay, Edit and resend, Compare two requests (Ctrl/Cmd+click), Save as HAR. Right-click a row for shortcuts. |
-| Tools menu | Mock responses, Breakpoints (edit request before send / response before the app), Settings: decrypt-only hosts, slow network delay, mask secrets, Light/Dark/System theme. |
+| Actions | Copy cURL or code (Python, JavaScript, C#), Replay, Edit and resend, Compare two requests (Ctrl/Cmd+click), Save and Open sessions as HAR. Right-click a row for shortcuts. |
+| Tools (top-bar icons) | Mock responses, Breakpoints (edit request before send / response before the app), Map Local (answer from a file) and Map Remote (send to another server), Settings: decrypt-only hosts, slow network delay, mask secrets, Light/Dark/System theme, Reset all. |
 | Footer | Recording state, app/request counts, total size, other-app connections ignored, active rules, selected URL. |
 
 ## Build and test

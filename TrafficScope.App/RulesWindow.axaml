@@ -144,6 +144,52 @@
           </StackPanel>
         </ScrollViewer>
       </TabItem>
+      <TabItem Header="Map">
+        <Grid ColumnDefinitions="280,14,*" Margin="0,10,0,0">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="Map Local answers matching requests from a file on this computer. Map Remote sends them to a different server, such as staging or localhost." TextWrapping="Wrap" Classes="muted" FontSize="12" Margin="0,0,0,8" />
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+              <Button Content="Add Map Local" Command="{Binding AddMapLocalCommand}" />
+              <Button Content="Add Map Remote" Command="{Binding AddMapRemoteCommand}" />
+              <Button Content="Delete" Command="{Binding DeleteMapCommand}" IsEnabled="{Binding HasMap}" />
+            </StackPanel>
+            <ListBox ItemsSource="{Binding Maps}" SelectedItem="{Binding SelectedMap}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:MapRuleVm">
+                  <Grid ColumnDefinitions="Auto,*">
+                    <CheckBox IsChecked="{Binding Enabled}" MinWidth="0" Margin="0,0,6,0" />
+                    <StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding Summary}" Classes="caption" TextTrimming="CharacterEllipsis" /></StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+          <Border Grid.Column="2" IsVisible="{Binding HasMap}"><StackPanel Spacing="6" DataContext="{Binding SelectedMap}" x:DataType="vm:MapRuleVm">
+            <TextBlock Text="{Binding Kind}" FontWeight="Medium" />
+            <TextBlock Text="Name" Classes="caption" /><TextBox Text="{Binding Name}" />
+            <Grid ColumnDefinitions="120,10,*">
+              <StackPanel><TextBlock Text="Method (blank = any)" Classes="caption" /><TextBox Text="{Binding Method}" Watermark="GET" /></StackPanel>
+              <StackPanel Grid.Column="2"><TextBlock Text="URL contains" Classes="caption" /><TextBox Text="{Binding UrlContains}" Watermark="/api/orders" /></StackPanel>
+            </Grid>
+            <StackPanel Spacing="6" IsVisible="{Binding IsLocal}">
+              <TextBlock Text="Answer with this file" Classes="caption" />
+              <Grid ColumnDefinitions="*,8,Auto">
+                <TextBox Text="{Binding LocalPath}" Watermark="Choose a .json, .html, image or any other file" />
+                <Button Grid.Column="2" Content="Choose file…" Click="OnChooseMapFile" />
+              </Grid>
+              <Grid ColumnDefinitions="110,*"><StackPanel><TextBlock Text="Status" Classes="caption" /><TextBox Text="{Binding Status}" Watermark="200" /></StackPanel></Grid>
+            </StackPanel>
+            <StackPanel Spacing="6" IsVisible="{Binding IsRemote}">
+              <TextBlock Text="Send to this server instead" Classes="caption" />
+              <TextBox Text="{Binding RemoteUrl}" Watermark="https://staging.example.com or http://localhost:3000" />
+            </StackPanel>
+            <TextBlock Text="{Binding Check}" Classes="caption" TextWrapping="Wrap" />
+            <TextBlock Text="The file is read again for every request, so you can edit it while recording. Mock responses win when both match." Classes="caption" TextWrapping="Wrap" IsVisible="{Binding IsLocal}" />
+            <TextBlock Text="The path and query stay the same. The request list keeps showing the address your app asked for, with a Remote tag." Classes="caption" TextWrapping="Wrap" IsVisible="{Binding IsRemote}" />
+          </StackPanel></Border>
+          <TextBlock Grid.Column="2" Text="Add a map, or right-click a request and choose Map Local or Map Remote." Classes="muted" IsVisible="{Binding !HasMap}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        </Grid>
+      </TabItem>
     </TabControl>
   </DockPanel>
 </Window>

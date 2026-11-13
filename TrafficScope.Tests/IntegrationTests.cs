@@ -158,6 +158,49 @@ public class IntegrationTests : IDisposable
     }
 
     [Fact]
+    public void MapLocalAnswersFromAFileWithoutCallingTheServer()
+    {
+        var file = Path.Combine(_dir, "orders.json");
+        File.WriteAllText(file, "{\"from\":\"file\"}");
+        _settings.Maps.Add(new MapRule { UrlContains = "/v2/orders", LocalPath = file, Status = 203 });
+        Apply();
+        _e.BeginCapture(new[] { Curl });
+        var hits = _srv.Hits;
+        var (_, o) = Run(Via("-i", Url("/v2/orders?id=1")));
+        Assert.Contains("{\"from\":\"file\"}", o);
+        Assert.Contains("203", o.Split('\n')[0]);
+        Assert.Contains("application/json", o, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(hits, _srv.Hits);
+        var f = WaitFlow(x => x.Path == "/v2/orders?id=1" && x.StatusCode != null);
+        Assert.Equal("Local", f.Mapped); Assert.Equal(file, f.MappedTo); Assert.Equal(203, f.StatusCode);
+
+        File.WriteAllText(file, "{\"from\":\"edited\"}");                    // edits are picked up without restarting
+        Assert.Contains("edited", Run(Via(Url("/v2/orders?id=2"))).Out);
+        File.Delete(file);                                                    // a missing file is a clear error, not a hang
+        Assert.Contains("could not read", Run(Via(Url("/v2/orders?id=3"))).Out);
+    }
+
+    [Fact]
+    public void MapRemoteSendsTheRequestToAnotherServer()
+    {
+        using var staging = new LocalServer();
+        _settings.Maps.Add(new MapRule { UrlContains = "/v2/login", IsRemote = true, RemoteUrl = $"http://127.0.0.1:{staging.Port}" });
+        Apply();
+        _e.BeginCapture(new[] { Curl });
+        var hits = _srv.Hits;
+        var (_, o) = Run(Via("-X", "POST", "-H", "Content-Type: application/json", "--data-raw", "{\"a\":1}", Url("/v2/login?x=1")));
+        Assert.Contains("\"path\":\"/v2/login\"", o);
+        Assert.Equal(1, staging.Hits);
+        Assert.Equal(hits, _srv.Hits);                                         // the original server was not called
+        Assert.Equal("{\"a\":1}", staging.LastBody);
+        Assert.Equal($"127.0.0.1:{staging.Port}", staging.LastHeaders["Host"]);
+        var f = WaitFlow(x => x.Path == "/v2/login?x=1" && x.StatusCode != null);
+        Assert.Equal("Remote", f.Mapped);
+        Assert.Equal($"http://127.0.0.1:{staging.Port}/v2/login?x=1", f.MappedTo);
+        Assert.Contains($":{_srv.Port}/", f.Url);                              // the list still shows what the app asked for
+    }
+
+    [Fact]
     public void ErrorStatusIsCaptured()
     {
         _e.BeginCapture(new[] { Curl });

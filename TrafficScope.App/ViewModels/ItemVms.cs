@@ -44,7 +44,7 @@ public partial class FlowVm : ObservableObject
     public string Time => Flow.Duration is { } d && !Flow.IsTunnel ? (d.TotalMilliseconds >= 1000 ? $"{d.TotalSeconds:0.0} s" : $"{d.TotalMilliseconds:0} ms") : "";
     public string Size => Formatting.Size(Flow.ResponseBody?.Length);
     public string Type => (Flow.ResponseContentType ?? "").Split(';')[0].Replace("application/", "").Replace("text/", "");
-    public string Tag => Flow.IsTunnel ? "Tunnel" : Flow.Mocked ? "Mock" : Flow.Edited ? "Edited" : Flow.Source.Length > 0 ? Flow.Source : "";
+    public string Tag => Flow.IsTunnel ? "Tunnel" : Flow.Mapped.Length > 0 ? Flow.Mapped : Flow.Mocked ? "Mock" : Flow.Edited ? "Edited" : Flow.Source.Length > 0 ? Flow.Source : "";
     public bool HasTag => Tag.Length > 0;
 
     public void Refresh()
@@ -91,6 +91,39 @@ public partial class MockRuleVm : ObservableObject
     public string Body { get => Rule.Body; set { Rule.Body = value ?? ""; OnPropertyChanged(); } }
     public string ExtraHeaders { get => Rule.ExtraHeaders; set { Rule.ExtraHeaders = value ?? ""; OnPropertyChanged(); } }
     public string Summary => $"{(string.IsNullOrEmpty(Rule.Method) ? "Any" : Rule.Method)} · {Rule.UrlContains} → {Rule.Status}";
+}
+
+public partial class MapRuleVm : ObservableObject
+{
+    public MapRuleVm(MapRule r) { Rule = r; }
+    public MapRule Rule { get; }
+    public bool Enabled { get => Rule.Enabled; set { Rule.Enabled = value; OnPropertyChanged(); } }
+    public string Name { get => Rule.Name; set { Rule.Name = value ?? ""; OnPropertyChanged(); } }
+    public string Method { get => Rule.Method; set { Rule.Method = value?.Trim().ToUpperInvariant() ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(Summary)); } }
+    public string UrlContains { get => Rule.UrlContains; set { Rule.UrlContains = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(Summary)); } }
+    public string LocalPath { get => Rule.LocalPath; set { Rule.LocalPath = value ?? ""; OnPropertyChanged(); Changed(); } }
+    public string RemoteUrl { get => Rule.RemoteUrl; set { Rule.RemoteUrl = value ?? ""; OnPropertyChanged(); Changed(); } }
+    public string Status { get => Rule.Status.ToString(); set { if (int.TryParse(value, out var s) && s is >= 100 and <= 599) Rule.Status = s; OnPropertyChanged(); } }
+    public bool IsRemote => Rule.IsRemote;
+    public bool IsLocal => !Rule.IsRemote;
+    public string Kind => Rule.IsRemote ? "Map Remote" : "Map Local";
+    public string Summary => $"{Kind} · {(string.IsNullOrEmpty(Rule.Method) ? "Any" : Rule.Method)} · {Rule.UrlContains}";
+    /// <summary>Plain-language check of the target, shown under the field.</summary>
+    public string Check
+    {
+        get
+        {
+            if (Rule.IsRemote)
+            {
+                if (string.IsNullOrWhiteSpace(Rule.RemoteUrl)) return "Enter the server to send matching requests to, for example https://staging.example.com";
+                if (!Uri.TryCreate(Rule.RemoteUrl.Trim(), UriKind.Absolute, out var u) || u.Scheme is not ("http" or "https")) return "This must start with http:// or https://";
+                return "Example: https://api.example.com/v2/orders?id=1 → " + MapRule.Remap("https://api.example.com/v2/orders?id=1", Rule.RemoteUrl);
+            }
+            if (string.IsNullOrWhiteSpace(Rule.LocalPath)) return "Choose the file to answer with.";
+            return File.Exists(Rule.LocalPath.Trim()) ? "File found. Content type: " + MapRule.ContentTypeFor(Rule.LocalPath) : "This file does not exist. Matching requests will get an error until it does.";
+        }
+    }
+    void Changed() { OnPropertyChanged(nameof(Check)); OnPropertyChanged(nameof(Summary)); }
 }
 
 public partial class BreakpointRuleVm : ObservableObject
