@@ -69,6 +69,36 @@ public static class Formatting
         return sb.ToString();
     }
 
+    /// <summary>Text boxes get slow with very long text, so the screen shows this much and the rest is saved to a file.</summary>
+    public const int PreviewChars = 200 * 1024;
+    /// <summary>Above this size a body is saved to a file instead of being copied to the clipboard.</summary>
+    public const int LargeBodyBytes = 1024 * 1024;
+
+    public static string Preview(string text, long totalBytes)
+    {
+        if (text.Length <= PreviewChars) return text;
+        var cut = text.LastIndexOf('\n', PreviewChars - 1, Math.Min(PreviewChars, 2000));
+        return text[..(cut > 0 ? cut : PreviewChars)]
+            + $"\n\n… Preview only: this body is {Size(totalBytes)}. Press the save icon above to get all of it in a file.";
+    }
+
+    /// <summary>A sensible file name for saving a body: the last part of the address plus an extension for its type.</summary>
+    public static string BodyFileName(string url, string? contentType, bool request)
+    {
+        var name = "";
+        if (Uri.TryCreate(url, UriKind.Absolute, out var u)) name = System.IO.Path.GetFileName(u.AbsolutePath.TrimEnd('/'));
+        name = new string(name.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.').ToArray());
+        if (name.Length == 0) name = "body";
+        if (name.Length > 60) name = name[..60];
+        var ct = (contentType ?? "").ToLowerInvariant();
+        var ext = ct.Contains("json") ? ".json" : ct.Contains("html") ? ".html" : ct.Contains("xml") ? ".xml" : ct.Contains("javascript") ? ".js"
+            : ct.Contains("css") ? ".css" : ct.Contains("csv") ? ".csv" : ct.Contains("png") ? ".png" : ct.Contains("jpeg") ? ".jpg" : ct.Contains("gif") ? ".gif"
+            : ct.Contains("pdf") ? ".pdf" : ct.Contains("zip") ? ".zip" : ct.StartsWith("text/") || ct.Contains("form-urlencoded") ? ".txt" : ".bin";
+        var stem = System.IO.Path.GetFileNameWithoutExtension(name);
+        if (stem.Length == 0) stem = "body";
+        return stem + (request ? "-request" : "-response") + ext;
+    }
+
     /// <summary>Classic hex view: offset, 16 bytes in hex, then the printable characters.</summary>
     public static string HexDump(byte[]? data, int maxBytes = 64 * 1024)
     {

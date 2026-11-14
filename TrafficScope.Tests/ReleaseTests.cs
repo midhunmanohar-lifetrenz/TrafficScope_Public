@@ -90,7 +90,7 @@ public class InstallerTests
     public void SetupVersionMatchesApp() => Assert.Equal(AppInfo.Version, Installer.Version);
 
     [Fact]
-    public void VersionIsCentral() => Assert.Equal("0.4.0", AppInfo.Version);
+    public void VersionIsCentral() => Assert.Equal("0.4.1", AppInfo.Version);
 }
 
 public class LeftoverProxyTests

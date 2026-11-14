@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using TrafficScope.Core;
 
 namespace TrafficScope.ViewModels;
@@ -54,28 +55,91 @@ public partial class FlowVm : ObservableObject
     }
 }
 
+/// <summary>
+/// One row of the JSON tree. Children are created only when the row is opened, and a long list shows
+/// <see cref="PageSize"/> items at a time, so a response with thousands of rows stays fast.
+/// </summary>
 public partial class JsonNodeVm : ObservableObject
 {
-    public JsonNodeVm(JsonNodeInfo n, int depth)
+    public const int PageSize = 100;
+    readonly JsonNodeInfo? _info;
+    readonly int _depth;
+    readonly int _openDepth;
+    readonly JsonNodeVm? _owner;      // set on a "show more" row: the list it belongs to
+    bool _built;
+    int _shown;
+
+    /// <param name="openDepth">Levels opened at the start: 3 for normal responses, 1 for large ones.</param>
+    public JsonNodeVm(JsonNodeInfo n, int depth, int openDepth = 3)
     {
-        Name = n.Name; Value = n.Kind is "object" or "array" ? n.Value : n.Value;
+        _info = n; _depth = depth; _openDepth = openDepth;
+        Name = n.Name; Value = n.Value;
         IsContainer = n.Kind is "object" or "array";
-        ValueBrush = Brush.Parse(n.Kind switch { "string" => "#2E9E5B", "number" => "#C98A12", "bool" => "#1A73E8", "null" => "#888780", _ => "#888780" });
         IsString = n.Kind == "string"; IsNumber = n.Kind == "number"; IsBool = n.Kind == "bool";
-        _isExpanded = depth < 3;
-        foreach (var c in n.Children) Children.Add(new JsonNodeVm(c, depth + 1));
+        if (IsContainer && n.Children.Count > 0)
+        {
+            if (depth < openDepth) { _isExpanded = true; Build(); }
+            else Children.Add(new JsonNodeVm());               // placeholder so the row can be opened
+        }
     }
+
+    JsonNodeVm() { Name = "…"; Value = ""; IsPlaceholder = true; }
+
+    JsonNodeVm(JsonNodeVm owner, int shown, int total)
+    {
+        _owner = owner; IsMore = true; Value = "";
+        var next = Math.Min(PageSize, total - shown);
+        Name = $"Show next {next}  ({shown:N0} of {total:N0} shown)";
+    }
+
     public string Name { get; }
     public string Value { get; }
     public bool IsContainer { get; }
-    public IBrush ValueBrush { get; }
     public bool IsString { get; }
     public bool IsNumber { get; }
     public bool IsBool { get; }
+    public bool IsMore { get; }
+    public bool IsPlaceholder { get; }
+    public bool IsValue => !IsMore && !IsPlaceholder;
+    public int TotalChildren => _info?.Children.Count ?? 0;
     public ObservableCollection<JsonNodeVm> Children { get; } = new();
     [ObservableProperty] bool _isExpanded;
 
-    public void SetExpanded(bool value) { IsExpanded = value; foreach (var c in Children) c.SetExpanded(value); }
+    partial void OnIsExpandedChanged(bool value) { if (value) Build(); }
+
+    void Build()
+    {
+        if (_built || _info == null) return;
+        _built = true;
+        Children.Clear();
+        AddPage();
+    }
+
+    void AddPage()
+    {
+        if (_info == null) return;
+        if (Children.Count > 0 && Children[^1].IsMore) Children.RemoveAt(Children.Count - 1);
+        var end = Math.Min(_shown + PageSize, _info.Children.Count);
+        for (; _shown < end; _shown++) Children.Add(new JsonNodeVm(_info.Children[_shown], _depth + 1, _openDepth));
+        if (_shown < _info.Children.Count) Children.Add(new JsonNodeVm(this, _shown, _info.Children.Count));
+    }
+
+    /// <summary>On a "show more" row: adds the next page to its list.</summary>
+    [RelayCommand]
+    void ShowMore() { if (_owner != null) { _owner.Build(); _owner.AddPage(); } }
+
+    /// <summary>Opens or closes this row and the rows below it. Opening stops once the budget is used, so "Expand all" cannot freeze on a huge response.</summary>
+    public void SetExpanded(bool value, ref int budget)
+    {
+        if (IsMore || IsPlaceholder || !IsContainer) return;
+        if (value && budget <= 0) return;
+        IsExpanded = value;
+        if (!_built) return;
+        if (value) budget -= Children.Count;
+        foreach (var c in Children) c.SetExpanded(value, ref budget);
+    }
+
+    public void SetExpanded(bool value) { var budget = int.MaxValue; SetExpanded(value, ref budget); }
 }
 
 public partial class MockRuleVm : ObservableObject

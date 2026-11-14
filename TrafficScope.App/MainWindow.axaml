@@ -247,9 +247,10 @@
           <TabControl x:Name="Inspector" Classes="sheet" Padding="0,8,0,0">
             <TabItem Header="Body">
               <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,*">
-                <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="*,Auto,Auto" Margin="2,0,0,4">
                   <TextBlock Text="Request" Classes="caption" VerticalAlignment="Center" />
-                  <Button Grid.Column="1" Classes="icon" Command="{Binding CopyRequestBodyCommand}" ToolTip.Tip="Copy request body"><Path Classes="copy" /></Button>
+                  <Button Grid.Column="1" x:Name="SaveRequestBodyButton" Classes="icon" Command="{Binding SaveRequestBodyCommand}" IsVisible="{Binding CanSaveRequestBody}" ToolTip.Tip="Save the full request body to a file"><Path Classes="save" /></Button>
+                  <Button Grid.Column="2" Classes="icon" Command="{Binding CopyRequestBodyCommand}" ToolTip.Tip="Copy request body"><Path Classes="copy" /></Button>
                 </Grid>
                 <Border Grid.Row="1" Grid.Column="0" Classes="pane">
                   <Panel>
@@ -257,9 +258,10 @@
                     <TreeView ItemsSource="{Binding RequestTree}" IsVisible="{Binding RequestIsJson}" Classes="json" />
                   </Panel>
                 </Border>
-                <Grid Grid.Row="0" Grid.Column="2" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                <Grid Grid.Row="0" Grid.Column="2" ColumnDefinitions="*,Auto,Auto" Margin="2,0,0,4">
                   <TextBlock Text="Response" Classes="caption" VerticalAlignment="Center" />
-                  <Button Grid.Column="1" Classes="icon" Command="{Binding CopyResponseBodyCommand}" ToolTip.Tip="Copy response body"><Path Classes="copy" /></Button>
+                  <Button Grid.Column="1" x:Name="SaveResponseBodyButton" Classes="icon" Command="{Binding SaveResponseBodyCommand}" IsVisible="{Binding CanSaveResponseBody}" ToolTip.Tip="Save the full response body to a file"><Path Classes="save" /></Button>
+                  <Button Grid.Column="2" Classes="icon" Command="{Binding CopyResponseBodyCommand}" ToolTip.Tip="Copy response body (large bodies are saved to a file instead)"><Path Classes="copy" /></Button>
                 </Grid>
                 <Border Grid.Row="1" Grid.Column="2" Classes="pane">
                   <Panel>
@@ -403,11 +405,15 @@
   </Window.Styles>
   <Window.DataTemplates>
     <TreeDataTemplate DataType="vm:JsonNodeVm" ItemsSource="{Binding Children}">
-      <StackPanel Orientation="Horizontal" Spacing="4">
-        <SelectableTextBlock Text="{Binding Name}" Foreground="{DynamicResource TsKey}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
-        <TextBlock Text=":" Classes="muted" FontSize="12" />
-        <SelectableTextBlock Text="{Binding Value}" Classes="jv" Classes.str="{Binding IsString}" Classes.num="{Binding IsNumber}" Classes.bool="{Binding IsBool}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
-      </StackPanel>
+      <Panel>
+        <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsValue}">
+          <SelectableTextBlock Text="{Binding Name}" Foreground="{DynamicResource TsKey}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
+          <TextBlock Text=":" Classes="muted" FontSize="12" />
+          <SelectableTextBlock Text="{Binding Value}" Classes="jv" Classes.str="{Binding IsString}" Classes.num="{Binding IsNumber}" Classes.bool="{Binding IsBool}" FontFamily="Menlo,Consolas,monospace" FontSize="12" />
+        </StackPanel>
+        <Button Classes="more" Content="{Binding Name}" Command="{Binding ShowMoreCommand}" IsVisible="{Binding IsMore}" HorizontalAlignment="Left" />
+        <TextBlock Text="…" Classes="muted" FontSize="12" IsVisible="{Binding IsPlaceholder}" />
+      </Panel>
     </TreeDataTemplate>
   </Window.DataTemplates>
 </Window>

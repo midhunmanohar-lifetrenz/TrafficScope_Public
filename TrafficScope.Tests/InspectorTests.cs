@@ -327,4 +327,32 @@ public class RoadmapFeatureTests
         File.Delete(file);
         Assert.True(p.ExitCode == 0, err);
     }
+
+    [Theory]
+    [InlineData("contract_name", true)]
+    [InlineData("CONTRACT_NAME", true)]
+    [InlineData("Variable\"", true)]
+    [InlineData("31367", true)]
+    [InlineData("not-in-there", false)]
+    [InlineData("Ünïcode", true)]
+    public void BodySearchScansBytesAndIgnoresCase(string q, bool found)
+    {
+        var body = System.Text.Encoding.UTF8.GetBytes("{\"Contract_Name\":\"Variable\",\"item_id\":\"31367\",\"note\":\"ünïcode\"}");
+        Assert.Equal(found, FlowFilter.BodyContains("application/json", body, q));
+        Assert.False(FlowFilter.BodyContains("image/png", new byte[] { 1, 2, 3 }, "a"));
+        Assert.False(FlowFilter.BodyContains("application/json", body, new string('x', 500)));
+    }
+
+    [Fact]
+    public void LongTextIsPreviewedAndFileNamesAreSensible()
+    {
+        var text = string.Join("\n", Enumerable.Repeat(new string('a', 99), 5000));        // 500,000 characters
+        var p = Formatting.Preview(text, 500_000);
+        Assert.True(p.Length < Formatting.PreviewChars + 300);
+        Assert.Contains("Preview only", p);
+        Assert.Equal("short", Formatting.Preview("short", 5));
+        Assert.Equal("item_master_report-response.json", Formatting.BodyFileName("https://x.test/app/services/item_master_report.php", "application/json", false));
+        Assert.Equal("orders-request.txt", Formatting.BodyFileName("https://x.test/v2/orders/?a=1", "application/x-www-form-urlencoded", true));
+        Assert.Equal("body-response.bin", Formatting.BodyFileName("https://x.test/", null, false));
+    }
 }

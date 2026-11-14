@@ -185,8 +185,35 @@ public static class FlowFilter
         if (q.Length == 0) return true;
         return f.Url.Contains(q, StringComparison.OrdinalIgnoreCase) || f.AppName.Contains(q, StringComparison.OrdinalIgnoreCase)
             || (f.StatusCode?.ToString() ?? "").Equals(q) || f.Method.Equals(q, StringComparison.OrdinalIgnoreCase)
-            || Formatting.BodyText(f.RequestContentType, f.RequestBody, false).Contains(q, StringComparison.OrdinalIgnoreCase)
-            || Formatting.BodyText(f.ResponseContentType, f.ResponseBody, false).Contains(q, StringComparison.OrdinalIgnoreCase);
+            || BodyContains(f.RequestContentType, f.RequestBody, q) || BodyContains(f.ResponseContentType, f.ResponseBody, q);
+    }
+
+    /// <summary>
+    /// Searches a body without turning it into a string first (that made every keystroke slow with large
+    /// responses). Plain-letter searches scan the bytes directly, ignoring case.
+    /// </summary>
+    public static bool BodyContains(string? contentType, byte[]? body, string q)
+    {
+        if (body is not { Length: > 0 } || q.Length == 0 || !Formatting.IsText(contentType, body)) return false;
+        if (q.Any(c => c > 127)) return System.Text.Encoding.UTF8.GetString(body).Contains(q, StringComparison.OrdinalIgnoreCase);
+        Span<byte> needle = q.Length <= 256 ? stackalloc byte[q.Length] : new byte[q.Length];
+        for (var i = 0; i < q.Length; i++) needle[i] = (byte)char.ToLowerInvariant(q[i]);
+        var first = needle[0]; var firstUpper = (byte)char.ToUpperInvariant((char)first);
+        var last = body.Length - needle.Length;
+        for (var i = 0; i <= last; i++)
+        {
+            var b = body[i];
+            if (b != first && b != firstUpper) continue;
+            var j = 1;
+            for (; j < needle.Length; j++)
+            {
+                var c = body[i + j];
+                if (c >= (byte)'A' && c <= (byte)'Z') c += 32;
+                if (c != needle[j]) break;
+            }
+            if (j == needle.Length) return true;
+        }
+        return false;
     }
 }
 

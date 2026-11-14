@@ -27,8 +27,10 @@ public partial class MainWindow : Window, IUiServices
     {
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            SuggestedFileName = suggestedName, DefaultExtension = "har",
-            FileTypeChoices = new[] { new FilePickerFileType("HTTP Archive") { Patterns = new[] { "*.har" } } },
+            SuggestedFileName = suggestedName, DefaultExtension = Path.GetExtension(suggestedName).TrimStart('.'),
+            FileTypeChoices = suggestedName.EndsWith(".har", StringComparison.OrdinalIgnoreCase)
+                ? new[] { new FilePickerFileType("HTTP Archive") { Patterns = new[] { "*.har" } } }
+                : new[] { new FilePickerFileType("File") { Patterns = new[] { "*" + Path.GetExtension(suggestedName) } }, FilePickerFileTypes.All },
         });
         return file?.TryGetLocalPath();
     }

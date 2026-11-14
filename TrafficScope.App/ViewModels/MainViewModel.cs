@@ -460,8 +460,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand] Task CopyRequest() => Sel == null ? Task.CompletedTask : Copy(Formatting.RawRequest(Sel, true, M), "Request copied");
     [RelayCommand] Task CopyResponse() => Sel == null ? Task.CompletedTask : Copy(Formatting.RawResponse(Sel, true, M), "Response copied");
-    [RelayCommand] Task CopyRequestBody() => Sel == null ? Task.CompletedTask : Copy(Formatting.BodyForCopy(Sel.RequestContentType, Sel.RequestBody), "Request body copied");
-    [RelayCommand] Task CopyResponseBody() => Sel == null ? Task.CompletedTask : Copy(Formatting.BodyForCopy(Sel.ResponseContentType, Sel.ResponseBody), "Response body copied");
+    [RelayCommand] Task CopyRequestBody() => CopyOrSaveBody(true);
+    [RelayCommand] Task CopyResponseBody() => CopyOrSaveBody(false);
     [RelayCommand] Task CopyRequestHeaders() => Sel == null ? Task.CompletedTask : Copy(Hdr(Sel.RequestHeaders), "Request headers copied");
     [RelayCommand] Task CopyResponseHeaders() => Sel == null ? Task.CompletedTask : Copy(Hdr(Sel.ResponseHeaders), "Response headers copied");
     [RelayCommand] Task CopyUrl() => Sel == null ? Task.CompletedTask : Copy(Sel.Url, "URL copied");

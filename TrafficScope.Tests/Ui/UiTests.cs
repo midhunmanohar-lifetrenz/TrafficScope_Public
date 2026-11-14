@@ -715,4 +715,110 @@ public class UiTests
         vm.MaskSecrets = false;
         w.Close();
     }
+
+    /// <summary>A response like a report screen returns: many rows, each with many fields.</summary>
+    static Flow BigJson(int rows, int fields = 70)
+    {
+        var sb = new StringBuilder("{\"head\":{\"StatusValue\":200},\"body\":{\"Data\":[");
+        for (var r = 0; r < rows; r++)
+        {
+            sb.Append(r == 0 ? "{" : ",{");
+            for (var c = 0; c < fields; c++) sb.Append(c == 0 ? "" : ",").Append("\"field_").Append(c).Append("\":\"value ").Append(r).Append('-').Append(c).Append('"');
+            sb.Append('}');
+        }
+        sb.Append("],\"RecordCount\":").Append(rows).Append("}}");
+        return Samples.Make(50, "SampleClinic", "POST", "https://prod.example-clinic.test/services/item_master_report.php", 200,
+            "application/x-www-form-urlencoded", "no_of_rec=50", "text/html", sb.ToString(), 2300);
+    }
+
+    static async Task WaitLoaded(MainViewModel vm)
+    {
+        for (var i = 0; i < 400 && vm.InspectorLoading; i++) { await Task.Delay(25); Dispatcher.UIThread.RunJobs(); }
+        Assert.False(vm.InspectorLoading);
+    }
+
+    [AvaloniaFact]
+    public async Task ThousandRowResponseLoadsInBackgroundAndShowsAHundredRowsAtATime()
+    {
+        var (w, vm, ui) = Open();
+        var flow = BigJson(1000);
+        Assert.True(flow.ResponseBody!.Length > 1024 * 1024);
+        vm.AddFlow(flow);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        vm.SelectedFlow = vm.Flows.Last();
+        Assert.True(sw.ElapsedMilliseconds < 500, $"selecting took {sw.ElapsedMilliseconds} ms on the screen thread");
+        Assert.True(vm.InspectorLoading);
+        Assert.StartsWith("Loading", vm.ResponseBodyText);
+        await WaitLoaded(vm);
+
+        var root = Assert.Single(vm.ResponseTree);
+        Assert.True(root.IsExpanded);
+        var body = root.Children.Single(c => c.Name == "body");
+        Assert.False(body.IsExpanded);                                         // large responses open one level only
+        body.IsExpanded = true;
+        var data = body.Children.Single(c => c.Name == "Data");
+        Assert.Equal("[ 1000 ]", data.Value);                                  // the real total is still shown
+        data.IsExpanded = true;
+        Assert.Equal(JsonNodeVm.PageSize + 1, data.Children.Count);            // 100 rows + the "show more" row
+        var more = data.Children[^1];
+        Assert.True(more.IsMore);
+        Assert.Equal("Show next 100  (100 of 1,000 shown)", more.Name);
+        Assert.False(data.Children[0].IsExpanded);                             // row fields are not built until opened
+        more.ShowMoreCommand.Execute(null);
+        Assert.Equal(201, data.Children.Count);
+        Assert.Equal("[199]", data.Children[199].Name);
+        Assert.Equal("Show next 100  (200 of 1,000 shown)", data.Children[^1].Name);
+        data.Children[0].IsExpanded = true;
+        Assert.Equal(70, data.Children[0].Children.Count);
+        Assert.Equal("\"value 0-0\"", data.Children[0].Children[0].Value);
+
+        sw.Restart();
+        vm.ExpandAllCommand.Execute(null);                                      // must not try to open 70,000 rows
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(sw.ElapsedMilliseconds < 3000, $"expand all took {sw.ElapsedMilliseconds} ms");
+        vm.CollapseAllCommand.Execute(null);
+
+        Assert.True(vm.ResponseText.Length < Formatting.PreviewChars + 2000);   // text views are previews
+        Assert.Contains("Preview only", vm.ResponseText);
+        Dispatcher.UIThread.RunJobs();
+        Shot(w, "28-large-response");
+
+        // copy turns into save for a body this large, and the file is the complete original
+        var path = Path.Combine(Path.GetTempPath(), "ts-body-" + Guid.NewGuid().ToString("N")[..6] + ".json");
+        ui.SavePath = path; ui.Clipboard = "";
+        await vm.CopyResponseBodyCommand.ExecuteAsync(null);
+        Assert.Equal("", ui.Clipboard);
+        Assert.Equal(flow.ResponseBody, File.ReadAllBytes(path));
+        Assert.Contains("Saved", vm.Status);
+        Assert.True(vm.CanSaveResponseBody);
+        Assert.True(w.FindControl<Button>("SaveResponseBodyButton")!.IsVisible);
+
+        vm.FilterText = "value 999-69";                                         // search still covers the whole body
+        Assert.Contains(vm.Flows, f => f.Id == 50);
+        vm.FilterText = "";
+        w.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task SwitchingAwayWhileALargeBodyLoadsShowsTheNewRequest()
+    {
+        var (_, vm, ui) = Open(false);
+        vm.AddFlow(BigJson(600));
+        vm.SelectedFlow = vm.Flows.Last();
+        vm.SelectedFlow = vm.Flows[1];                                          // small one, loads at once
+        Assert.False(vm.InspectorLoading);
+        var expected = vm.ResponseBodyText;
+        await Task.Delay(1500); Dispatcher.UIThread.RunJobs();                  // the big one finishes late and must be ignored
+        Assert.Equal(expected, vm.ResponseBodyText);
+        Assert.Equal("items", vm.ResponseTree[0].Children[0].Name);
+
+        // small bodies still copy, and can be saved too
+        await vm.CopyResponseBodyCommand.ExecuteAsync(null);
+        Assert.Contains("\"total\"", ui.Clipboard);
+        ui.SavePath = Path.Combine(Path.GetTempPath(), "ts-body-" + Guid.NewGuid().ToString("N")[..6] + ".json");
+        await vm.SaveResponseBodyCommand.ExecuteAsync(null);
+        Assert.Equal(vm.SelectedFlow!.Flow.ResponseBody, File.ReadAllBytes(ui.SavePath));
+        ui.SavePath = null;
+        await vm.SaveResponseBodyCommand.ExecuteAsync(null);                    // cancelled: nothing happens
+    }
 }

@@ -1,22 +1,22 @@
-# TrafficScope 0.4.0
+# TrafficScope 0.4.1
 
 See every HTTP/HTTPS request and response from the apps you choose, on Mac and Windows.
 
 ## Downloads
 | File | For |
 |---|---|
-| `TrafficScope-0.4.0-macOS-AppleSilicon.dmg` | Macs with Apple Silicon (M1 and later), macOS 12+ |
-| `TrafficScope-0.4.0-Windows-Setup.exe` | Windows 10/11 x64, installs for the current user (no admin rights) |
-| `TrafficScope-0.4.0-Windows-Portable.zip` | Windows x64 without installing (single `TrafficScope.exe`) |
-| `SHA256SUMS-0.4.0.txt` | Checksums to confirm the files arrived intact |
+| `TrafficScope-0.4.1-macOS-AppleSilicon.dmg` | Macs with Apple Silicon (M1 and later), macOS 12+ |
+| `TrafficScope-0.4.1-Windows-Setup.exe` | Windows 10/11 x64, installs for the current user (no admin rights) |
+| `TrafficScope-0.4.1-Windows-Portable.zip` | Windows x64 without installing (single `TrafficScope.exe`) |
+| `SHA256SUMS-0.4.1.txt` | Checksums to confirm the files arrived intact |
 
 ## Install
 **Mac:** open the dmg, drag TrafficScope to Applications, open it. The first time, macOS blocks it because the build is not
 signed with an Apple Developer ID yet: click Done, then **System Settings > Privacy & Security > Open Anyway**.
 
-**Windows:** run `TrafficScope-0.4.0-Windows-Setup.exe`. If SmartScreen says "Windows protected your PC", click
+**Windows:** run `TrafficScope-0.4.1-Windows-Setup.exe`. If SmartScreen says "Windows protected your PC", click
 **More info > Run anyway** (the installer is not code-signed yet). Remove it from **Settings > Apps > Installed apps**.
-IT/silent: `TrafficScope-0.4.0-Windows-Setup.exe /S` (add `/nodesktop` to skip the Desktop shortcut); uninstall with `/uninstall /S`.
+IT/silent: `TrafficScope-0.4.1-Windows-Setup.exe /S` (add `/nodesktop` to skip the Desktop shortcut); uninstall with `/uninstall /S`.
 
 ## First use
 1. Press **Install certificate** (top right) and approve the system prompt (needed to read HTTPS). It turns into a green **Verified** button.
@@ -30,6 +30,11 @@ IT/silent: `TrafficScope-0.4.0-Windows-Setup.exe /S` (add `/nodesktop` to skip t
 - Mock responses, Map Local, Map Remote, request/response breakpoints, slow network, decrypt-only host list, secret masking
 - Send to Postman (saves into your Postman workspace via the Postman API)
 - Light, Dark and System themes
+- New in 0.4.1 (large responses):
+  - Clicking a large response no longer freezes the app: bodies over 256 KB are prepared in the background
+  - Long JSON lists show 100 rows at a time with **Show next 100**; rows are built when you open them
+  - **Save to file** icon next to each copy icon; above 1 MB, copy saves to a file instead
+  - Raw and plain-text views show the first 200 KB of a large body; search still covers all of it and is faster
 - New in 0.4.0:
   - **Open** a saved session or any `.har` file (from a browser, Proxyman, Fiddler or Charles); **Save** writes a
     `.har` you can open again or attach to a bug report
